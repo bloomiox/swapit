@@ -1,22 +1,97 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, StatusBar, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 const EditProfileScreen = ({ navigation }) => {
   const [fullName, setFullName] = useState('John Doe');
   const [email, setEmail] = useState('johndoe@gmail.com');
   const [bio, setBio] = useState('Eco-conscious swapper. Love giving items a second life! Text.\n\n\n');
   const [location, setLocation] = useState('Rorschach, Sankt Gallen');
+  const [profileImage, setProfileImage] = useState(null);
+
+  useEffect(() => {
+    // Request permissions when component mounts
+    (async () => {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Sorry, we need camera roll permissions to make this work!');
+      }
+      
+      const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      if (cameraStatus !== 'granted') {
+        Alert.alert('Permission Required', 'Sorry, we need camera permissions to make this work!');
+      }
+    })();
+  }, []);
 
   const handleUpdate = () => {
     // In a real app, you would send the updated profile data to your backend
-    console.log('Updating profile:', { fullName, email, bio, location });
+    console.log('Updating profile:', { fullName, email, bio, location, profileImage });
     Alert.alert('Success', 'Profile updated successfully!');
     navigation.goBack();
   };
 
   const handleBack = () => {
     navigation.goBack();
+  };
+
+  const selectProfileImage = async () => {
+    // Show options to select from gallery or camera
+    Alert.alert(
+      'Select Profile Photo',
+      'Choose an option',
+      [
+        {
+          text: 'Camera',
+          onPress: takePhoto,
+        },
+        {
+          text: 'Gallery',
+          onPress: pickImage,
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const pickImage = async () => {
+    try {
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image from gallery');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      let result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
   };
 
   return (
@@ -45,16 +120,20 @@ const EditProfileScreen = ({ navigation }) => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile Picture Section */}
         <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>JD</Text>
-            </View>
-            <TouchableOpacity style={styles.editAvatarButton}>
+          <TouchableOpacity style={styles.avatarContainer} onPress={selectProfileImage}>
+            {profileImage ? (
+              <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>JD</Text>
+              </View>
+            )}
+            <View style={styles.editAvatarButton}>
               <View style={styles.editAvatarIcon}>
                 <Ionicons name="camera" size={16} color="#FFFFFF" />
               </View>
-            </TouchableOpacity>
-          </View>
+            </View>
+          </TouchableOpacity>
         </View>
         
         <View style={styles.form}>
@@ -199,6 +278,11 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     position: 'relative',
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
   avatarPlaceholder: {
     width: 100,

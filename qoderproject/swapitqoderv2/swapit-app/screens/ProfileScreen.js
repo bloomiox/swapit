@@ -18,14 +18,6 @@ const ProfileScreen = ({ navigation }) => {
     rating: 4.5,
   };
 
-  const menuItems = [
-    { id: '1', title: 'My Listings', icon: 'list', screen: 'MyListings' },
-    { id: '2', title: 'Saved Items', icon: 'heart', screen: 'SavedItems' },
-    { id: '3', title: 'Settings', icon: 'settings', screen: 'Settings' },
-    { id: '4', title: 'Payment History', icon: 'card', screen: 'PaymentHistory' },
-    { id: '5', title: 'Help & Support', icon: 'help-circle', screen: 'Help' },
-  ];
-
   const items = [
     { id: '1', name: 'iPhone', location: 'Berkeley CA · 9.3km' },
     { id: '2', name: 'Office Bag', location: 'Berkeley CA · 9.3km', free: true },
@@ -42,6 +34,10 @@ const ProfileScreen = ({ navigation }) => {
         { text: 'Logout', onPress: () => navigation.replace('Login') }
       ]
     );
+  };
+
+  const handleHelp = () => {
+    navigation.navigate('Help');
   };
 
   const renderTab = (tabName, badgeCount) => (
@@ -77,7 +73,10 @@ const ProfileScreen = ({ navigation }) => {
           >
             <Ionicons name="settings-outline" size={24} color="#021229" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.appBarButton}>
+          <TouchableOpacity 
+            style={styles.appBarButton}
+            onPress={handleHelp}
+          >
             <Ionicons name="help-circle-outline" size={24} color="#021229" />
           </TouchableOpacity>
         </View>
@@ -154,22 +153,10 @@ const ProfileScreen = ({ navigation }) => {
           ))}
         </View>
         
-        {/* Menu Items */}
-        <View style={styles.menuContainer}>
-          {menuItems.map(item => (
-            <TouchableOpacity 
-              key={item.id} 
-              style={styles.menuItem}
-              onPress={() => navigation.navigate(item.screen)}
-            >
-              <Ionicons name={item.icon} size={20} color="#021229" style={styles.menuIcon} />
-              <Text style={styles.menuItemText}>{item.title}</Text>
-              <Ionicons name="chevron-forward" size={20} color="#6E6D7A" />
-            </TouchableOpacity>
-          ))}
-          
-          <TouchableOpacity style={[styles.menuItem, styles.logoutButton]} onPress={handleLogout}>
-            <Ionicons name="log-out" size={20} color="#FFFFFF" style={styles.menuIcon} />
+        {/* Logout Button */}
+        <View style={styles.logoutContainer}>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            <Ionicons name="log-out" size={20} color="#FFFFFF" style={styles.logoutIcon} />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -361,39 +348,27 @@ const styles = StyleSheet.create({
     width: '48%',
     marginBottom: 16,
   },
-  menuContainer: {
+  logoutContainer: {
     backgroundColor: '#FFFFFF',
     margin: 16,
     borderRadius: 16,
     padding: 16,
   },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E7E8EC',
-  },
-  menuIcon: {
-    marginRight: 16,
-  },
-  menuItemText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#021229',
-  },
   logoutButton: {
     backgroundColor: '#FF3B30',
     borderRadius: 16,
-    marginTop: 16,
-    borderBottomWidth: 0,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoutIcon: {
+    marginRight: 8,
   },
   logoutText: {
-    flex: 1,
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
-    textAlign: 'center',
   },
 });
 

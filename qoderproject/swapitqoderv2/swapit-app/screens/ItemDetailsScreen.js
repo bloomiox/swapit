@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import BoostItemPopup from '../components/BoostItemPopup';
 
 const ItemDetailsScreen = ({ route, navigation }) => {
   // Sample item data (in a real app, this would come from route.params or an API)
@@ -19,8 +20,12 @@ const ItemDetailsScreen = ({ route, navigation }) => {
     publishedAt: 'Published at 19 Dec 2024 at 12:00 PM',
     lookingFor: ['Books', 'Electronics', 'Sports & Fitness', 'Toys & Games'],
     images: [],
-    isFree: true
+    isFree: true,
+    isBoosted: false // Added to track if item is boosted
   };
+
+  const [isBoostPopupVisible, setBoostPopupVisible] = useState(false);
+  const [isUserItem, setIsUserItem] = useState(true); // For demo purposes, assuming user is viewing their own item
 
   const handleRequestTrade = () => {
     navigation.navigate('SwapRequest', { item });
@@ -40,6 +45,23 @@ const ItemDetailsScreen = ({ route, navigation }) => {
 
   const handleSave = () => {
     Alert.alert('Save', 'Item saved to your favorites.');
+  };
+
+  const handleEditItem = () => {
+    // Navigate to edit item screen
+    Alert.alert('Edit Item', 'This would navigate to the edit item screen.');
+  };
+
+  const handleBoostItem = () => {
+    setBoostPopupVisible(true);
+  };
+
+  const handleBoostSelection = (option) => {
+    setBoostPopupVisible(false);
+    Alert.alert(
+      'Boost Item',
+      `Your item will be boosted for ${option.days} day${option.days > 1 ? 's' : ''} for ${option.price}. This would integrate with Payrexx for payment processing.`
+    );
   };
 
   return (
@@ -66,12 +88,29 @@ const ItemDetailsScreen = ({ route, navigation }) => {
             <Ionicons name="arrow-back" size={24} color="#021229" />
           </TouchableOpacity>
           <View style={styles.appBarButtons}>
-            <TouchableOpacity style={styles.iconButton} onPress={handleSave}>
-              <Ionicons name="heart-outline" size={24} color="#021229" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-              <Ionicons name="share-outline" size={24} color="#021229" />
-            </TouchableOpacity>
+            {isUserItem ? (
+              // Options for user's own item
+              <>
+                <TouchableOpacity style={styles.iconButton} onPress={handleEditItem}>
+                  <Ionicons name="pencil-outline" size={24} color="#021229" />
+                </TouchableOpacity>
+                {!item.isBoosted && (
+                  <TouchableOpacity style={styles.iconButton} onPress={handleBoostItem}>
+                    <Ionicons name="rocket-outline" size={24} color="#021229" />
+                  </TouchableOpacity>
+                )}
+              </>
+            ) : (
+              // Options for other users' items
+              <>
+                <TouchableOpacity style={styles.iconButton} onPress={handleSave}>
+                  <Ionicons name="heart-outline" size={24} color="#021229" />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
+                  <Ionicons name="share-outline" size={24} color="#021229" />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
 
@@ -114,6 +153,12 @@ const ItemDetailsScreen = ({ route, navigation }) => {
               <View style={styles.badgeFree}>
                 <Ionicons name="rocket-outline" size={16} color="#119C21" />
                 <Text style={styles.badgeFreeText}>For FREE</Text>
+              </View>
+            )}
+            {item.isBoosted && (
+              <View style={styles.badgeBoosted}>
+                <Ionicons name="flame" size={16} color="#FF6B35" />
+                <Text style={styles.badgeBoostedText}>BOOSTED</Text>
               </View>
             )}
             <View style={styles.badgeCategory}>
@@ -167,14 +212,23 @@ const ItemDetailsScreen = ({ route, navigation }) => {
       </ScrollView>
 
       {/* Request Button */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.requestButton}
-          onPress={handleRequestTrade}
-        >
-          <Text style={styles.requestButtonText}>Request Swap</Text>
-        </TouchableOpacity>
-      </View>
+      {!isUserItem && (
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={styles.requestButton}
+            onPress={handleRequestTrade}
+          >
+            <Text style={styles.requestButtonText}>Request Swap</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Boost Item Popup */}
+      <BoostItemPopup 
+        visible={isBoostPopupVisible}
+        onClose={() => setBoostPopupVisible(false)}
+        onBoost={handleBoostSelection}
+      />
     </View>
   );
 };
@@ -318,6 +372,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#119C21',
+    marginLeft: 4,
+  },
+  badgeBoosted: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEDE6',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  badgeBoostedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF6B35',
     marginLeft: 4,
   },
   badgeCategory: {

@@ -32,6 +32,7 @@ import SignUpScreen from './screens/SignUpScreen';
 import OnboardingProfileScreen from './screens/OnboardingProfileScreen';
 import OnboardingCategoriesScreen from './screens/OnboardingCategoriesScreen';
 import OnboardingOverviewScreen from './screens/OnboardingOverviewScreen';
+import HelpScreen from './screens/HelpScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -180,6 +181,7 @@ function MainStack() {
       <Stack.Screen name="SwapRequest" component={SwapRequestScreen} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
+      <Stack.Screen name="Help" component={HelpScreen} />
     </Stack.Navigator>
   );
 }
