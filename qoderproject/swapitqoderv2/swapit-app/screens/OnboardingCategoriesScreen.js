@@ -43,9 +43,11 @@ const OnboardingCategoriesScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Progress Bar */}
+      {/* Progress Bar - Step 2 of 3 */}
       <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBar, { width: '66%' }]} />
+        <View style={styles.progressBar}>
+          <View style={[styles.progress, { width: '66.66%' }]} />
+        </View>
       </View>
 
       {/* Status Bar */}
@@ -109,9 +111,12 @@ const styles = StyleSheet.create({
   progressBarContainer: {
     height: 4,
     backgroundColor: '#FFFFFF',
-    width: '100%',
   },
   progressBar: {
+    height: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  progress: {
     height: '100%',
     backgroundColor: '#119C21',
   },

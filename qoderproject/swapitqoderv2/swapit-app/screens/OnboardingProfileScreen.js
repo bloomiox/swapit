@@ -1,11 +1,97 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaView, Image } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 
 const OnboardingProfileScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [location, setLocation] = useState('');
+  const [locationError, setLocationError] = useState(null);
+  const [profileImage, setProfileImage] = useState(null);
+
+  useEffect(() => {
+    // Don't automatically request location on mount
+    // Let the user trigger it manually
+  }, []);
+
+  const getCurrentLocation = async () => {
+    try {
+      setLocationError(null);
+      
+      // Request permission to access location
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status === 'granted') {
+        // Get current location
+        let locationData = await Location.getCurrentPositionAsync({});
+        
+        // In a real app, you would use reverse geocoding to get the actual address
+        // For now, we'll just set a placeholder text
+        setLocation('Current Location');
+        setLocationError(null);
+      } else if (status === 'denied') {
+        setLocationError('Permission to access location was denied');
+        Alert.alert(
+          'Permission Required',
+          'Location permission is required to get your current location. Please enable location services in your device settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Location.openSettings() }
+          ]
+        );
+      } else if (status === 'undetermined') {
+        // Permission request was not made yet, try again
+        setLocationError('Please allow location access when prompted');
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      setLocationError('Unable to retrieve location');
+      Alert.alert('Location Error', 'Unable to retrieve your location. Please try again or enter manually.');
+    }
+  };
+
+  const selectProfileImage = async () => {
+    // Request permission to access media library
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
+
+    // Launch image picker
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
+
+  const takeProfilePhoto = async () => {
+    // Request permission to access camera
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera permissions to make this work!');
+      return;
+    }
+
+    // Launch camera
+    let result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setProfileImage(result.assets[0].uri);
+    }
+  };
 
   const handleContinue = () => {
     // Simple validation
@@ -20,10 +106,10 @@ const OnboardingProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Progress Bar */}
+      {/* Progress Bar - Step 1 of 3 */}
       <View style={styles.progressBarContainer}>
         <View style={styles.progressBar}>
-          <View style={[styles.progress, { width: '33%' }]} />
+          <View style={[styles.progress, { width: '33.33%' }]} />
         </View>
       </View>
       
@@ -40,6 +126,23 @@ const OnboardingProfileScreen = ({ navigation }) => {
         </View>
         
         <View style={styles.form}>
+          {/* Profile Photo */}
+          <View style={styles.profilePhotoContainer}>
+            <TouchableOpacity style={styles.profilePhotoButton} onPress={selectProfileImage}>
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} style={styles.profileImage} />
+              ) : (
+                <View style={styles.profilePhotoPlaceholder}>
+                  <MaterialIcons name="person" size={40} color="#6E6D7A" />
+                  <Text style={styles.profilePhotoText}>Add Photo</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cameraButton} onPress={takeProfilePhoto}>
+              <MaterialIcons name="photo-camera" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          
           {/* Name Input */}
           <View style={styles.inputContainer}>
             <TextInput
@@ -72,8 +175,13 @@ const OnboardingProfileScreen = ({ navigation }) => {
                 value={location}
                 onChangeText={setLocation}
               />
-              <MaterialIcons name="my-location" size={20} color="#021229" style={styles.locationIcon} />
+              <TouchableOpacity onPress={getCurrentLocation} style={styles.locationButton}>
+                <MaterialIcons name="my-location" size={20} color="#021229" />
+              </TouchableOpacity>
             </View>
+            {locationError ? (
+              <Text style={styles.errorText}>{locationError}</Text>
+            ) : null}
           </View>
         </View>
       </View>
@@ -133,6 +241,46 @@ const styles = StyleSheet.create({
   form: {
     gap: 16,
   },
+  profilePhotoContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  profilePhotoButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7E8EC',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+  },
+  profilePhotoPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profilePhotoText: {
+    fontSize: 12,
+    color: '#6E6D7A',
+    marginTop: 4,
+  },
+  cameraButton: {
+    position: 'absolute',
+    bottom: 0,
+    right: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#119C21',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   inputContainer: {
     alignSelf: 'stretch',
   },
@@ -166,8 +314,18 @@ const styles = StyleSheet.create({
     padding: 0,
     backgroundColor: 'transparent',
   },
+  locationButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
   locationIcon: {
     marginLeft: 8,
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
   },
   buttonContainer: {
     padding: 20,

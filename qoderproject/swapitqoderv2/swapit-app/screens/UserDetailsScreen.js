@@ -106,6 +106,11 @@ const UserDetailsScreen = ({ route, navigation }) => {
             <Text style={styles.statNumber}>98%</Text>
             <Text style={styles.statLabel}>Response</Text>
           </View>
+          
+          {/* Contact User Button - Moved under statistics and above About section */}
+          <TouchableOpacity style={styles.contactUserButton} onPress={handleContactUser}>
+            <Text style={styles.contactUserButtonText}>Contact User</Text>
+          </TouchableOpacity>
         </View>
 
         {/* About Section */}
@@ -137,14 +142,6 @@ const UserDetailsScreen = ({ route, navigation }) => {
           />
         </View>
       </ScrollView>
-
-      {/* Contact Button */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.contactButton} onPress={handleContactUser}>
-          <Ionicons name="chatbubble-ellipses-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.contactButtonText}>Contact User</Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 };
@@ -277,6 +274,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     justifyContent: 'space-around',
+    alignItems: 'center',
   },
   statItem: {
     alignItems: 'center',
@@ -290,6 +288,22 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: 14,
     color: '#6E6D7A',
+  },
+  // Contact User Button Styles - Added inside stats container
+  contactUserButton: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#119C21',
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactUserButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#119C21',
   },
   aboutSection: {
     backgroundColor: '#FFFFFF',
@@ -375,24 +389,6 @@ const styles = StyleSheet.create({
   itemCategory: {
     fontSize: 14,
     color: '#6E6D7A',
-  },
-  buttonContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  contactButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#119C21',
-    borderRadius: 16,
-    paddingVertical: 16,
-  },
-  contactButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 8,
   },
 });
 

@@ -1,21 +1,54 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Image, Animated, Easing } from 'react-native';
 
 const SplashScreen = ({ navigation }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+
   useEffect(() => {
-    // Simulate loading time
+    // Start animations
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 1000,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      })
+    ]).start();
+
+    // Navigate to Login screen after 2 seconds
     const timer = setTimeout(() => {
-      // Navigate to Login screen after 2 seconds
       navigation.replace('Login');
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [navigation]);
+  }, [fadeAnim, slideAnim, navigation]);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Swap It</Text>
-      <Text style={styles.subtitle}>Exchange items, not money</Text>
+      <Animated.View 
+        style={[
+          styles.logoContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          }
+        ]}
+      >
+        <Image 
+          source={require('../assets/splash-icon.png')} 
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.title}>Swap It</Text>
+        <Text style={styles.subtitle}>Swap.Share.Sustain.</Text>
+      </Animated.View>
     </View>
   );
 };
@@ -25,17 +58,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#4e6aff',
+    backgroundColor: '#F7F5EC',
+  },
+  logoContainer: {
+    alignItems: 'center',
+  },
+  logo: {
+    width: 180,
+    height: 180,
+    marginBottom: 20,
   },
   title: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: 'white',
+    color: '#021229',
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 16,
-    color: 'white',
+    color: '#6E6D7A',
     opacity: 0.8,
   },
 });

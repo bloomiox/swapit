@@ -26,6 +26,12 @@ import DistanceFilterScreen from './screens/DistanceFilterScreen';
 import SwapRequestScreen from './screens/SwapRequestScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import SplashScreen from './screens/SplashScreen';
+import LoginScreen from './screens/LoginScreen';
+import SignUpScreen from './screens/SignUpScreen';
+import OnboardingProfileScreen from './screens/OnboardingProfileScreen';
+import OnboardingCategoriesScreen from './screens/OnboardingCategoriesScreen';
+import OnboardingOverviewScreen from './screens/OnboardingOverviewScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -153,6 +159,12 @@ function MainTabs() {
 function MainStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Splash" component={SplashScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} />
+      <Stack.Screen name="OnboardingCategories" component={OnboardingCategoriesScreen} />
+      <Stack.Screen name="OnboardingOverview" component={OnboardingOverviewScreen} />
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="ItemDetails" component={ItemDetailsScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />

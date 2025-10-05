@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F5EC',
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 30,
     borderBottomWidth: 1,
     borderBottomColor: '#E7E8EC',
   },
