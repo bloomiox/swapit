@@ -1,55 +1,89 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+// Import API service
+import { getCurrentUser, getSwapRequests } from '../utils/api';
 
 const SwapRequestsScreen = () => {
   const [activeTab, setActiveTab] = useState('received');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [receivedRequests, setReceivedRequests] = useState([]);
+  const [sentRequests, setSentRequests] = useState([]);
 
-  // Sample data for received requests
-  const receivedRequests = [
-    {
-      id: '1',
-      user: {
-        name: 'Sarah Miller',
-        timestamp: '19 Dec 2024 at 12:00 PM'
-      },
-      items: {
-        want: {
-          name: 'Vintage Stool',
-          label: 'Wants'
-        },
-        offer: {
-          name: 'Leather bag with original strap and long 3 pockets',
-          label: 'Offering'
-        }
-      },
-      message: 'Hi! I love your vintage stool. Would you be interested in swapping for my leather bag?',
-      status: 'pending'
-    }
-  ];
+  // Fetch swap requests data from Supabase
+  useEffect(() => {
+    fetchSwapRequestsData();
+  }, []);
 
-  // Sample data for sent requests
-  const sentRequests = [
-    {
-      id: '2',
-      user: {
-        name: 'John Smith',
-        timestamp: '18 Dec 2024 at 10:30 AM'
-      },
-      items: {
-        want: {
-          name: 'Vintage Camera',
-          label: 'You Want'
+  const fetchSwapRequestsData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Get current user
+      const currentUser = await getCurrentUser();
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+      
+      // Fetch swap requests
+      const allRequests = await getSwapRequests(currentUser.id);
+      
+      // Separate received and sent requests
+      const received = allRequests.filter(request => request.owner_id === currentUser.id);
+      const sent = allRequests.filter(request => request.requester_id === currentUser.id);
+      
+      // Format the data to match the existing structure
+      const formattedReceived = received.map(request => ({
+        id: request.id.toString(),
+        user: {
+          name: request.requester?.name || 'Unknown User',
+          timestamp: new Date(request.created_at).toLocaleString()
         },
-        offer: {
-          name: 'Bluetooth Speaker',
-          label: 'You Offering'
-        }
-      },
-      message: 'Hi! I have a vintage camera you might be interested in. Would you like to swap for my Bluetooth speaker?',
-      status: 'pending'
+        items: {
+          want: {
+            name: request.items?.title || 'Unknown Item',
+            label: 'Wants'
+          },
+          offer: {
+            name: 'Item for trade', // This would need to be fetched from a related item
+            label: 'Offering'
+          }
+        },
+        message: request.message || 'No message provided',
+        status: request.status || 'pending'
+      }));
+      
+      const formattedSent = sent.map(request => ({
+        id: request.id.toString(),
+        user: {
+          name: request.owner?.name || 'Unknown User',
+          timestamp: new Date(request.created_at).toLocaleString()
+        },
+        items: {
+          want: {
+            name: request.items?.title || 'Unknown Item',
+            label: 'You Want'
+          },
+          offer: {
+            name: 'Your item', // This would need to be fetched from a related item
+            label: 'You Offering'
+          }
+        },
+        message: request.message || 'No message provided',
+        status: request.status || 'pending'
+      }));
+      
+      setReceivedRequests(formattedReceived);
+      setSentRequests(formattedSent);
+    } catch (error) {
+      console.error('Error fetching swap requests:', error);
+      setError('Failed to load swap requests. Please try again later.');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const requests = activeTab === 'received' ? receivedRequests : sentRequests;
 
@@ -131,6 +165,31 @@ const SwapRequestsScreen = () => {
       </View>
     </View>
   );
+
+  // Render loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading swap requests...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchSwapRequestsData}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -466,6 +525,34 @@ const styles = StyleSheet.create({
     height: 5,
     backgroundColor: '#021229',
     borderRadius: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#119C21',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

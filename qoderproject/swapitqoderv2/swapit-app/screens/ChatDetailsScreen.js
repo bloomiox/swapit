@@ -1,69 +1,71 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, StatusBar, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+// Import API service
+import { getCurrentUser, getMessages, sendMessage } from '../utils/api';
 
 const ChatDetailsScreen = ({ route, navigation }) => {
-  const { userName } = route.params || { userName: 'Sarah Miller' };
+  const { userName, chatId } = route.params || { userName: 'Unknown User', chatId: null };
   const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
-  // Sample messages data
-  const messages = [
-    { 
-      id: '1', 
-      text: 'This is how a message will look from other person', 
-      sender: 'other', 
-      time: '12:04 PM',
-      date: 'Today'
-    },
-    { 
-      id: '2', 
-      text: 'The bubble will have certain length', 
-      sender: 'other', 
-      time: '12:04 PM',
-      date: 'Today'
-    },
-    { 
-      id: '3', 
-      text: 'This is how a message will look from myself', 
-      sender: 'me', 
-      time: '12:04 PM',
-      date: 'Today'
-    },
-    { 
-      id: '4', 
-      text: 'Messages will be separated by date. Today and Yesterday will be used and then the date will be shown afterwards', 
-      sender: 'me', 
-      time: '12:04 PM',
-      date: 'Yesterday'
-    },
-    { 
-      id: '5', 
-      text: 'Sure, Alright', 
-      sender: 'other', 
-      time: '12:04 PM',
-      date: 'Yesterday'
-    },
-    { 
-      id: '6', 
-      text: 'Oh! and consecutive messages from the same user will have less spacing as compared to other person message', 
-      sender: 'other', 
-      time: '12:04 PM',
-      date: 'Yesterday'
-    },
-    { 
-      id: '7', 
-      text: 'Cool! Let\'s see how this project goes. Maybe in the future, we can have more like this.', 
-      sender: 'me', 
-      time: '12:04 PM',
-      date: 'Yesterday'
-    },
-  ];
+  // Fetch messages data from Supabase
+  useEffect(() => {
+    if (chatId) {
+      fetchMessagesData();
+    } else {
+      setLoading(false);
+      setError('No chat ID provided');
+    }
+  }, [chatId]);
 
-  const sendMessage = () => {
-    if (message.trim()) {
-      // In a real app, you would send the message to your backend
-      console.log('Sending message:', message);
-      setMessage('');
+  const fetchMessagesData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch messages
+      const messagesData = await getMessages(chatId);
+      
+      // Format the data to match the existing structure
+      const formattedMessages = messagesData.map(msg => ({
+        id: msg.id.toString(),
+        text: msg.content,
+        sender: msg.sender_id === getCurrentUser().id ? 'me' : 'other',
+        time: new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: new Date(msg.timestamp).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+      }));
+      
+      setMessages(formattedMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      setError('Failed to load messages. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const sendMessageHandler = async () => {
+    if (message.trim() && chatId) {
+      try {
+        // Send the message
+        await sendMessage({
+          chat_id: chatId,
+          sender_id: getCurrentUser().id,
+          content: message.trim()
+        });
+        
+        // Clear the input field
+        setMessage('');
+        
+        // Refresh messages
+        fetchMessagesData();
+      } catch (error) {
+        console.error('Error sending message:', error);
+        Alert.alert('Error', 'Failed to send message. Please try again.');
+      }
     }
   };
 
@@ -110,6 +112,31 @@ const ChatDetailsScreen = ({ route, navigation }) => {
     );
   };
 
+  // Render loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading messages...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchMessagesData}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       {/* Status Bar */}
@@ -123,7 +150,7 @@ const ChatDetailsScreen = ({ route, navigation }) => {
         <View style={styles.userInfo}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>U</Text>
+              <Text style={styles.avatarText}>{userName.charAt(0)}</Text>
             </View>
           </View>
           <View style={styles.userDetails}>
@@ -155,7 +182,7 @@ const ChatDetailsScreen = ({ route, navigation }) => {
             onChangeText={setMessage}
           />
         </View>
-        <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
+        <TouchableOpacity style={styles.sendButton} onPress={sendMessageHandler}>
           <Ionicons name="send" size={20} color="white" />
         </TouchableOpacity>
       </View>
@@ -338,6 +365,34 @@ const styles = StyleSheet.create({
     height: 5,
     backgroundColor: '#021229',
     borderRadius: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#119C21',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

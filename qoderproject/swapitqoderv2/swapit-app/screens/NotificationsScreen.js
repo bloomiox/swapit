@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,58 +6,79 @@ import {
   ScrollView,
   TouchableOpacity,
   SafeAreaView,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { getNotifications } from '../utils/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const NotificationsScreen = ({ navigation }) => {
-  // Sample notification data
-  const newNotifications = [
-    {
-      id: '1',
-      text: 'Sarah Miller has requested a swap for your Vintage Stool',
-      time: '19 Dec 2024 at 12:00 PM',
-      isNew: true,
-    },
-    {
-      id: '2',
-      text: 'Joshua has requested a swap for your Vintage Stool',
-      time: '19 Dec 2024 at 11:00 PM',
-      isNew: true,
-    },
-  ];
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const { user } = useAuth();
 
-  const allNotifications = [
-    {
-      id: '3',
-      text: 'Henry Wong has requested a swap for your Vintage Stool',
-      time: '19 Dec 2024 at 9:00 PM',
-      isNew: false,
-    },
-    {
-      id: '4',
-      text: 'Ali has requested a swap for your iPhone',
-      time: '19 Dec 2024 at 8:40 PM',
-      isNew: false,
-    },
-    {
-      id: '5',
-      text: 'Jane has requested a swap for your iPhone',
-      time: '19 Dec 2024 at 7:11 PM',
-      isNew: false,
-    },
-    {
-      id: '6',
-      text: 'Jane has requested a swap for your iPhone',
-      time: '19 Dec 2024 at 12:00 PM',
-      isNew: false,
-    },
-  ];
+  useEffect(() => {
+    fetchNotifications();
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      const data = await getNotifications(user.id);
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchNotifications();
+    setRefreshing(false);
+  };
+
+  const groupNotifications = (notifications) => {
+    const newNotifications = [];
+    const allNotifications = [];
+    
+    notifications.forEach(notification => {
+      // For now, we'll consider notifications as "new" if they haven't been marked as read
+      // In a real app, you might use a timestamp or other criteria
+      if (!notification.read) {
+        newNotifications.push({ ...notification, isNew: true });
+      } else {
+        allNotifications.push({ ...notification, isNew: false });
+      }
+    });
+    
+    return { newNotifications, allNotifications };
+  };
+
+  const { newNotifications, allNotifications } = groupNotifications(notifications);
 
   const NotificationItem = ({ notification }) => (
     <View style={styles.notificationItem}>
       <View style={styles.notificationContent}>
-        <Text style={styles.notificationText}>{notification.text}</Text>
-        <Text style={styles.notificationTime}>{notification.time}</Text>
+        <Text style={styles.notificationText}>
+          {notification.text || notification.message || 'Notification'}
+        </Text>
+        <Text style={styles.notificationTime}>
+          {notification.timestamp 
+            ? new Date(notification.timestamp).toLocaleString()
+            : notification.created_at 
+            ? new Date(notification.created_at).toLocaleString()
+            : 'Unknown time'}
+        </Text>
       </View>
       {notification.isNew && (
         <View style={styles.newBadge}>
@@ -66,6 +87,23 @@ const NotificationsScreen = ({ navigation }) => {
       )}
     </View>
   );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="#021229" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Alerts</Text>
+          <View style={styles.placeholder} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#119C21" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -78,7 +116,12 @@ const NotificationsScreen = ({ navigation }) => {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView 
+        style={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#119C21']} />
+        }
+      >
         {/* New Notifications Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -88,9 +131,15 @@ const NotificationsScreen = ({ navigation }) => {
             <Text style={styles.sectionTitle}>New</Text>
           </View>
           <View style={styles.notificationsContainer}>
-            {newNotifications.map((notification) => (
-              <NotificationItem key={notification.id} notification={notification} />
-            ))}
+            {newNotifications.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No new notifications</Text>
+              </View>
+            ) : (
+              newNotifications.map((notification) => (
+                <NotificationItem key={notification.id} notification={notification} />
+              ))
+            )}
           </View>
         </View>
 
@@ -103,9 +152,15 @@ const NotificationsScreen = ({ navigation }) => {
             <Text style={styles.sectionTitle}>All Notifications</Text>
           </View>
           <View style={styles.notificationsContainer}>
-            {allNotifications.map((notification) => (
-              <NotificationItem key={notification.id} notification={notification} />
-            ))}
+            {allNotifications.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No notifications yet</Text>
+              </View>
+            ) : (
+              allNotifications.map((notification) => (
+                <NotificationItem key={notification.id} notification={notification} />
+              ))
+            )}
           </View>
         </View>
       </ScrollView>
@@ -137,6 +192,11 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -201,6 +261,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: '#FFFFFF',
+    fontFamily: 'DM Sans',
+  },
+  emptyState: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E7E8EC',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#6E6D7A',
     fontFamily: 'DM Sans',
   },
 });

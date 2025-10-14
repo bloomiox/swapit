@@ -2,6 +2,7 @@
   "name": "swapit-app",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
@@ -10,10 +11,12 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
+    "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/masked-view": "^0.1.11",
     "@react-navigation/bottom-tabs": "^7.4.8",
     "@react-navigation/native": "^7.1.18",
     "@react-navigation/stack": "^7.4.9",
+    "@supabase/supabase-js": "^2.48.3",
     "expo": "~54.0.12",
     "expo-image-picker": "^17.0.8",
     "expo-location": "^19.0.7",

@@ -1,25 +1,68 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, StatusBar, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+// Import API service
+import { getChats } from '../utils/api';
+// Import Auth context
+import { useAuth } from '../contexts/AuthContext';
 
 const ChatScreen = ({ navigation }) => {
-  // Sample data for conversations
-  const conversations = [
-    { 
-      id: '1', 
-      user: 'Sarah Miller', 
-      lastMessage: 'Latest message will appear here and will truncate on the first line as well', 
-      time: '12:17 PM', 
-      unread: 2,
-    },
-    { 
-      id: '2', 
-      user: 'Joshua', 
-      lastMessage: 'Latest message will appear here and will truncate on the first line as well', 
-      time: '24 Dec', 
-      unread: 0,
-    },
-  ];
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { user: authUser, isEmailVerified } = useAuth();
+
+  // Fetch chats data from Supabase
+  useEffect(() => {
+    if (!isEmailVerified()) {
+      Alert.alert(
+        'Email Verification Required',
+        'Please verify your email address to access chat features.',
+        [
+          {
+            text: 'OK',
+            onPress: () => navigation.navigate('EmailVerification')
+          }
+        ]
+      );
+      return;
+    }
+    
+    fetchChatsData();
+  }, [authUser, isEmailVerified]);
+
+  const fetchChatsData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Check if user is logged in
+      if (!authUser) {
+        throw new Error('No user logged in');
+      }
+      
+      // Fetch chats
+      const chatsData = await getChats(authUser.id);
+      
+      // Format the data to match the existing structure
+      const formattedChats = chatsData.map(chat => ({
+        id: chat.id.toString(),
+        user: chat.requester_id === authUser.id ? 
+          (chat.owner?.name || 'Unknown User') : 
+          (chat.requester?.name || 'Unknown User'),
+        lastMessage: 'Latest message will appear here', // This would need to be fetched from messages
+        time: new Date(chat.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        unread: 0, // This would need to be calculated from unread messages
+      }));
+      
+      setConversations(formattedChats);
+    } catch (error) {
+      console.error('Error fetching chats:', error);
+      setError('Failed to load chats. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const renderConversation = ({ item }) => (
     <TouchableOpacity 
@@ -47,6 +90,31 @@ const ChatScreen = ({ navigation }) => {
       </View>
     </TouchableOpacity>
   );
+
+  // Render loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading chats...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchChatsData}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -156,6 +224,34 @@ const styles = StyleSheet.create({
   badgeText: {
     color: '#7C0D09',
     fontSize: 8,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#119C21',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '600',
   },
 });

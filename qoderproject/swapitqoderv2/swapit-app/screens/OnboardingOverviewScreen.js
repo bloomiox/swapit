@@ -1,43 +1,66 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { useAuth } from '../contexts/AuthContext';
+import { updateUserProfile, createUserProfile } from '../utils/api';
 
 const OnboardingOverviewScreen = ({ navigation }) => {
+  const { user } = useAuth();
+
+  const handleGetStarted = async () => {
+    try {
+      // Mark onboarding as completed in the user's profile
+      if (user) {
+        // Prepare update data
+        const updateData = {
+          onboarding_completed: true
+        };
+        
+        // Try to update the profile first
+        try {
+          await updateUserProfile(user.id, updateData);
+        } catch (updateError) {
+          // If update fails because profile doesn't exist or RLS violation, create it
+          if (updateError.code === 'PGRST116' || updateError.code === '42501') {
+            await createUserProfile(user.id, updateData);
+          } else {
+            throw updateError;
+          }
+        }
+      }
+      
+      // Navigate to the main app
+      navigation.replace('MainTabs');
+    } catch (error) {
+      console.error('Error updating onboarding status:', error);
+      // Still navigate to the main app even if we can't update the status
+      navigation.replace('MainTabs');
+    }
+  };
+
   const handleAddFirstItem = () => {
-    // Navigate to add item screen or relevant screen
-    console.log('Add first item pressed');
-  };
-
-  const handleStartSwapping = () => {
-    // Navigate to main app
-    navigation.replace('MainTabs');
-  };
-
-  const handleBack = () => {
-    navigation.goBack();
+    // Mark onboarding as completed and navigate to AddItem screen
+    handleGetStarted().then(() => {
+      navigation.replace('MainTabs'); // Navigate to main tabs first
+      // Then navigate to AddItem within the main app
+    });
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Progress Bar - Step 3 of 3 */}
       <View style={styles.progressBarContainer}>
         <View style={styles.progressBar}>
           <View style={[styles.progress, { width: '100%' }]} />
         </View>
       </View>
-
+      
       {/* Status Bar */}
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F5EC" />
-
-      {/* App Bar */}
-      <View style={styles.appBar}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <View style={styles.backButtonIcon} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Congrats Illustration */}
-      <View style={styles.illustrationContainer}>
-        <View style={styles.congratsIllustration}>
+      <View style={styles.statusBar} />
+      
+      {/* Content */}
+      <View style={styles.content}>
+        {/* Illustration */}
+        <View style={styles.illustrationContainer}>
           <Text style={styles.illustrationText}>🎉</Text>
         </View>
       </View>
@@ -107,19 +130,19 @@ const OnboardingOverviewScreen = ({ navigation }) => {
       {/* Action Buttons */}
       <View style={styles.buttonsContainer}>
         <TouchableOpacity style={styles.outlinedButton} onPress={handleAddFirstItem}>
-          <Text style={styles.outlinedButtonText}>Add First Item</Text>
+          <Text style={styles.outlinedButtonText}>Add your first item</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.containedButton} onPress={handleStartSwapping}>
-          <Text style={styles.containedButtonText}>Start Swapping</Text>
+        <TouchableOpacity style={styles.containedButton} onPress={handleGetStarted}>
+          <Text style={styles.containedButtonText}>Get started</Text>
         </TouchableOpacity>
       </View>
-
+      
       {/* Home Indicator */}
       <View style={styles.homeIndicator}>
         <View style={styles.indicatorBar} />
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -127,13 +150,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F7F5EC',
-    paddingHorizontal: 20,
-    paddingTop: 32,
   },
   progressBarContainer: {
     height: 4,
     backgroundColor: '#FFFFFF',
-    marginBottom: 28,
   },
   progressBar: {
     height: 4,
@@ -143,59 +163,52 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#119C21',
   },
-  appBar: {
-    flexDirection: 'row',
+  statusBar: {
+    height: 44,
+    backgroundColor: '#F7F5EC',
+  },
+  content: {
+    flex: 1,
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  backButton: {
-    padding: 8,
-  },
-  backButtonIcon: {
-    width: 24,
-    height: 24,
-    backgroundColor: '#021229',
-    opacity: 0.5,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
   },
   illustrationContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  congratsIllustration: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
     backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    marginBottom: 32,
   },
   illustrationText: {
-    fontSize: 40,
+    fontSize: 100,
   },
   textContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 20,
+    marginBottom: 32,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: 'bold',
     color: '#021229',
-    marginBottom: 8,
+    marginBottom: 16,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    fontWeight: '400',
     color: '#6E6D7A',
     textAlign: 'center',
     lineHeight: 24,
   },
   infoContainer: {
     backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   profileSection: {
     flexDirection: 'row',
@@ -206,21 +219,21 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#D8F7D7',
-    justifyContent: 'center',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F9F9F9',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#119C21',
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#021229',
   },
   cameraButton: {
     position: 'absolute',
-    bottom: 0,
+    bottom: -8,
     right: -8,
     width: 32,
     height: 32,
@@ -312,6 +325,7 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     flexDirection: 'row',
     gap: 8,
+    marginHorizontal: 20,
     marginBottom: 24,
   },
   outlinedButton: {

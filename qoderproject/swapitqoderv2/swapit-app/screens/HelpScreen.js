@@ -242,7 +242,15 @@ const HelpScreen = ({ navigation }) => {
         <View style={styles.tabsContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScrollView}>
             <View style={styles.tabs}>
-              {tabs.map(tab => renderTab(tab))}
+              {tabs.map((tab, index) => (
+                <TouchableOpacity 
+                  key={`${tab}-${index}`}
+                  style={[styles.tab, activeTab === tab && styles.activeTab]}
+                  onPress={() => setActiveTab(tab)}
+                >
+                  <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>{tab}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </ScrollView>
         </View>

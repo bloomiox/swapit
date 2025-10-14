@@ -3,6 +3,9 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, SafeAreaVie
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+// Import Auth context and API service
+import { useAuth } from '../contexts/AuthContext';
+import { updateUserProfile, createUserProfile } from '../utils/api';
 
 const OnboardingProfileScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -10,6 +13,7 @@ const OnboardingProfileScreen = ({ navigation }) => {
   const [location, setLocation] = useState('');
   const [locationError, setLocationError] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
+  const { user: authUser } = useAuth();
 
   useEffect(() => {
     // Don't automatically request location on mount
@@ -93,15 +97,36 @@ const OnboardingProfileScreen = ({ navigation }) => {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     // Simple validation
     if (!name.trim()) {
       Alert.alert('Error', 'Please enter your name');
       return;
     }
     
-    // Navigate to next onboarding screen
-    navigation.replace('OnboardingCategories');
+    try {
+      // Update or create user profile
+      if (authUser && authUser.id) {
+        // Prepare profile data
+        const profileData = {
+          name: name.trim(),
+          email: authUser.email,
+          bio: bio.trim(),
+          location: location.trim()
+        };
+        
+        // Use the robust update function that handles both update and create
+        await updateUserProfile(authUser.id, profileData);
+      } else {
+        throw new Error('User is not authenticated or user ID is missing');
+      }
+      
+      // Navigate to next onboarding screen
+      navigation.replace('OnboardingCategories');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      Alert.alert('Error', 'Failed to save profile information. Please try again.');
+    }
   };
 
   return (

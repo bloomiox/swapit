@@ -1,42 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BoostItemPopup from '../components/BoostItemPopup';
+// Import API service
+import { getItemById } from '../utils/api';
 
 const ItemDetailsScreen = ({ route, navigation }) => {
-  // Sample item data (in a real app, this would come from route.params or an API)
-  const item = {
-    id: route.params?.itemId || '1',
-    title: 'Vintage Camera',
-    description: 'Beautiful vintage film camera in perfect working condition. Great for photography enthusiasts!',
-    category: 'Electronics',
-    user: {
-      name: 'John Doe',
-      rating: 4.5,
-      swapCount: 24
-    },
-    location: 'Berkeley CA · 9.3km away',
-    condition: 'New Condition',
-    publishedAt: 'Published at 19 Dec 2024 at 12:00 PM',
-    lookingFor: ['Books', 'Electronics', 'Sports & Fitness', 'Toys & Games'],
-    images: [],
-    isFree: true,
-    isBoosted: false // Added to track if item is boosted
+  const [item, setItem] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isBoostPopupVisible, setBoostPopupVisible] = useState(false);
+  const [isUserItem, setIsUserItem] = useState(false); // Will be determined based on user authentication
+
+  // Fetch item data from Supabase
+  useEffect(() => {
+    if (route.params?.itemId) {
+      fetchItemData(route.params.itemId);
+    } else {
+      setLoading(false);
+      setError('No item ID provided');
+    }
+  }, [route.params?.itemId]);
+
+  const fetchItemData = async (itemId) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch item data from Supabase
+      const itemData = await getItemById(itemId);
+      setItem(itemData);
+    } catch (error) {
+      console.error('Error fetching item:', error);
+      setError('Failed to load item details. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const [isBoostPopupVisible, setBoostPopupVisible] = useState(false);
-  const [isUserItem, setIsUserItem] = useState(true); // For demo purposes, assuming user is viewing their own item
-
   const handleRequestTrade = () => {
+    if (!item) return;
     navigation.navigate('SwapRequest', { item });
   };
 
   const handleUserPress = () => {
-    navigation.navigate('UserDetails', { userId: '123' });
+    if (!item || !item.profiles) return;
+    navigation.navigate('UserDetails', { userId: item.profiles.id });
   };
 
   const handleChatPress = () => {
-    navigation.navigate('ChatDetails', { userId: '123' });
+    if (!item || !item.profiles) return;
+    navigation.navigate('ChatDetails', { userId: item.profiles.id });
   };
 
   const handleShare = () => {
@@ -48,8 +62,9 @@ const ItemDetailsScreen = ({ route, navigation }) => {
   };
 
   const handleEditItem = () => {
+    if (!item) return;
     // Navigate to edit item screen
-    Alert.alert('Edit Item', 'This would navigate to the edit item screen.');
+    navigation.navigate('EditItem', { itemId: item.id });
   };
 
   const handleBoostItem = () => {
@@ -63,6 +78,42 @@ const ItemDetailsScreen = ({ route, navigation }) => {
       `Your item will be boosted for ${option.days} day${option.days > 1 ? 's' : ''} for ${option.price}. This would integrate with Payrexx for payment processing.`
     );
   };
+
+  // Render loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading item details...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchItemData(route.params?.itemId)}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Render empty state
+  if (!item) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <Text>Item not found</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -94,7 +145,7 @@ const ItemDetailsScreen = ({ route, navigation }) => {
                 <TouchableOpacity style={styles.iconButton} onPress={handleEditItem}>
                   <Ionicons name="pencil-outline" size={24} color="#021229" />
                 </TouchableOpacity>
-                {!item.isBoosted && (
+                {!item.is_boosted && (
                   <TouchableOpacity style={styles.iconButton} onPress={handleBoostItem}>
                     <Ionicons name="rocket-outline" size={24} color="#021229" />
                   </TouchableOpacity>
@@ -126,7 +177,7 @@ const ItemDetailsScreen = ({ route, navigation }) => {
             
             {/* Additional Images (1/4 of the column) */}
             <View style={styles.additionalImagesContainer}>
-              {[1, 2, 3, 4, 5, 6].map((item, index) => (
+              {item.images && item.images.map((image, index) => (
                 <View 
                   key={index} 
                   style={[
@@ -149,13 +200,13 @@ const ItemDetailsScreen = ({ route, navigation }) => {
           </View>
 
           <View style={styles.badgesContainer}>
-            {item.isFree && (
+            {item.is_free && (
               <View style={styles.badgeFree}>
                 <Ionicons name="rocket-outline" size={16} color="#119C21" />
                 <Text style={styles.badgeFreeText}>For FREE</Text>
               </View>
             )}
-            {item.isBoosted && (
+            {item.is_boosted && (
               <View style={styles.badgeBoosted}>
                 <Ionicons name="flame" size={16} color="#FF6B35" />
                 <Text style={styles.badgeBoostedText}>BOOSTED</Text>
@@ -163,11 +214,11 @@ const ItemDetailsScreen = ({ route, navigation }) => {
             )}
             <View style={styles.badgeCategory}>
               <Ionicons name="phone-portrait-outline" size={16} color="#021229" />
-              <Text style={styles.badgeCategoryText}>{item.category}</Text>
+              <Text style={styles.badgeCategoryText}>{item.category_id}</Text>
             </View>
             <View style={styles.badgeCondition}>
               <Ionicons name="happy-outline" size={16} color="#119C21" />
-              <Text style={styles.badgeConditionText}>{item.condition}</Text>
+              <Text style={styles.badgeConditionText}>{item.condition_id}</Text>
             </View>
           </View>
 
@@ -179,7 +230,7 @@ const ItemDetailsScreen = ({ route, navigation }) => {
           <View style={styles.lookingForContainer}>
             <Text style={styles.lookingForTitle}>Looking for</Text>
             <View style={styles.lookingForBadges}>
-              {item.lookingFor.map((category, index) => (
+              {item.looking_for && item.looking_for.map((category, index) => (
                 <View key={index} style={styles.categoryBadge}>
                   <Text style={styles.categoryBadgeText}>{category}</Text>
                 </View>
@@ -193,11 +244,11 @@ const ItemDetailsScreen = ({ route, navigation }) => {
           <TouchableOpacity style={styles.userInfo} onPress={handleUserPress}>
             <View style={styles.avatarPlaceholder} />
             <View style={styles.userText}>
-              <Text style={styles.userName}>{item.user.name}</Text>
+              <Text style={styles.userName}>{item.profiles?.name || 'Unknown User'}</Text>
               <View style={styles.userRating}>
                 <Ionicons name="star" size={16} color="#FFD700" />
-                <Text style={styles.userRatingText}>{item.user.rating}</Text>
-                <Text style={styles.userSwaps}>({item.user.swapCount} swaps)</Text>
+                <Text style={styles.userRatingText}>{item.profiles?.rating || 0}</Text>
+                <Text style={styles.userSwaps}>({item.profiles?.swaps || 0} swaps)</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -212,7 +263,7 @@ const ItemDetailsScreen = ({ route, navigation }) => {
       </ScrollView>
 
       {/* Request Button */}
-      {!isUserItem && (
+      {!isUserItem && item && (
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={styles.requestButton}
@@ -531,6 +582,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#119C21',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

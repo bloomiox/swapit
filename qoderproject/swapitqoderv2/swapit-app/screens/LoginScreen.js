@@ -1,20 +1,36 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+// Import API service
+import { signIn } from '../utils/api';
+// Import Auth context
+import { useAuth } from '../contexts/AuthContext';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [hidePassword, setHidePassword] = useState(true);
+  const { login } = useAuth();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     // Simple validation
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
     
-    // Navigate to main app (in a real app, you would authenticate first)
-    navigation.replace('MainTabs');
+    try {
+      // Call the signIn API function
+      const { user, session } = await signIn(email, password);
+      
+      // Update auth context
+      login(user);
+      
+      // Navigate to main app after successful login
+      navigation.replace('MainTabs');
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert('Error', error.message || 'Failed to login. Please check your credentials and try again.');
+    }
   };
 
   const togglePasswordVisibility = () => {
@@ -36,7 +52,7 @@ const LoginScreen = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
-                placeholder="ex: johndoe@gmail.com"
+                placeholder="Enter your email"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -51,7 +67,7 @@ const LoginScreen = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
-                placeholder="••••••••"
+                placeholder="Enter your password"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={hidePassword}
@@ -63,7 +79,7 @@ const LoginScreen = ({ navigation }) => {
           </View>
           
           {/* Forgot Password */}
-          <TouchableOpacity style={styles.forgotPasswordButton} onPress={() => {}}>
+          <TouchableOpacity style={styles.forgotPasswordButton} onPress={() => navigation.navigate('ForgotPassword')}>
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
           

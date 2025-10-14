@@ -5,9 +5,12 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useTheme } from '../contexts/ThemeContext';
 import BoostItemPopup from '../components/BoostItemPopup';
+// Import Auth context
+import { useAuth } from '../contexts/AuthContext';
 
 const AddItemScreen = ({ navigation }) => {
   const { isDarkMode } = useTheme();
+  const { user, isEmailVerified } = useAuth();
   const [itemType, setItemType] = useState('swap'); // 'swap' or 'drop'
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -21,6 +24,7 @@ const AddItemScreen = ({ navigation }) => {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showConditionModal, setShowConditionModal] = useState(false);
   const [showBoostPopup, setShowBoostPopup] = useState(false);
+  const [showVerificationAlert, setShowVerificationAlert] = useState(false);
 
   // Sample categories data
   const categories = [
@@ -30,6 +34,13 @@ const AddItemScreen = ({ navigation }) => {
   ];
 
   const conditions = ['New', 'Like New', 'Good', 'Fair', 'Poor'];
+
+  // Check if user is verified before allowing access to add item
+  useEffect(() => {
+    if (user && !isEmailVerified()) {
+      setShowVerificationAlert(true);
+    }
+  }, [user, isEmailVerified]);
 
   // Get user's current location
   useEffect(() => {
@@ -194,6 +205,16 @@ const AddItemScreen = ({ navigation }) => {
     setSwapPreferences(newPreferences);
   };
 
+  const handleVerifyEmail = () => {
+    setShowVerificationAlert(false);
+    navigation.navigate('EmailVerification');
+  };
+
+  const handleGoBack = () => {
+    setShowVerificationAlert(false);
+    navigation.goBack();
+  };
+
   // Apply theme styles
   const themedStyles = {
     ...styles,
@@ -201,373 +222,296 @@ const AddItemScreen = ({ navigation }) => {
       ...styles.container,
       backgroundColor: isDarkMode ? '#121212' : '#F7F5EC',
     },
-    appBar: {
-      ...styles.appBar,
-      backgroundColor: isDarkMode ? '#121212' : '#F7F5EC',
-    },
-    appBarTitle: {
-      ...styles.appBarTitle,
-      color: isDarkMode ? '#FFFFFF' : '#021229',
-    },
-    content: {
-      ...styles.content,
-      backgroundColor: isDarkMode ? '#121212' : '#F7F5EC',
-    },
     header: {
       ...styles.header,
+      backgroundColor: isDarkMode ? '#1e1e1e' : '#F7F5EC',
+    },
+    title: {
+      ...styles.title,
       color: isDarkMode ? '#FFFFFF' : '#021229',
+    },
+    formContainer: {
+      ...styles.formContainer,
+      backgroundColor: isDarkMode ? '#1e1e1e' : '#FFFFFF',
     },
     label: {
       ...styles.label,
       color: isDarkMode ? '#FFFFFF' : '#021229',
     },
-    labelContainer: {
-      ...styles.labelContainer,
-      color: isDarkMode ? '#FFFFFF' : '#021229',
-    },
-    helperText: {
-      ...styles.helperText,
-      color: isDarkMode ? '#B0B0B0' : '#6E6D7A',
-    },
-    addPhotoButton: {
-      ...styles.addPhotoButton,
-      backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-      borderColor: isDarkMode ? '#333333' : '#E7E8EC',
-    },
-    plusIconContainer: {
-      ...styles.plusIconContainer,
-      backgroundColor: isDarkMode ? '#333333' : '#D8F7D7',
-    },
-    photoPlaceholder: {
-      ...styles.photoPlaceholder,
-      backgroundColor: isDarkMode ? '#333333' : '#E7E8EC',
-    },
-    photoContainer: {
-      ...styles.photoContainer,
-      backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-    },
-    removePhotoButton: {
-      ...styles.removePhotoButton,
-      backgroundColor: '#F44336',
-    },
-    listItem: {
-      ...styles.listItem,
-      backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-      borderColor: isDarkMode ? '#333333' : '#E7E8EC',
-    },
-    selectedListItem: {
-      ...styles.selectedListItem,
-      borderColor: isDarkMode ? '#119C21' : '#416B40',
-      backgroundColor: isDarkMode ? '#119C21' : '#D8F7D7',
-    },
-    primaryText: {
-      ...styles.primaryText,
-      color: isDarkMode ? '#FFFFFF' : '#021229',
-    },
-    selectedPrimaryText: {
-      ...styles.selectedPrimaryText,
-      color: isDarkMode ? '#FFFFFF' : '#416B40',
-    },
-    secondaryText: {
-      ...styles.secondaryText,
-      color: isDarkMode ? '#B0B0B0' : '#6E6D7A',
-    },
     input: {
       ...styles.input,
-      backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-      borderColor: isDarkMode ? '#333333' : '#E7E8EC',
-    },
-    placeholderText: {
-      ...styles.placeholderText,
-      color: isDarkMode ? '#B0B0B0' : '#6E6D7A',
+      backgroundColor: isDarkMode ? '#2d2d2d' : '#FFFFFF',
+      color: isDarkMode ? '#FFFFFF' : '#6E6D7A',
+      borderColor: isDarkMode ? '#444444' : '#E7E8EC',
     },
     textArea: {
       ...styles.textArea,
-      color: isDarkMode ? '#FFFFFF' : '#021229',
+      backgroundColor: isDarkMode ? '#2d2d2d' : '#FFFFFF',
+      color: isDarkMode ? '#FFFFFF' : '#6E6D7A',
+      borderColor: isDarkMode ? '#444444' : '#E7E8EC',
     },
-    conditionBadge: {
-      ...styles.conditionBadge,
-      backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-      borderColor: isDarkMode ? '#333333' : '#E7E8EC',
+    pickerContainer: {
+      ...styles.pickerContainer,
+      backgroundColor: isDarkMode ? '#2d2d2d' : '#FFFFFF',
+      borderColor: isDarkMode ? '#444444' : '#E7E8EC',
     },
-    selectedConditionBadge: {
-      ...styles.selectedConditionBadge,
-      borderColor: isDarkMode ? '#119C21' : '#416B40',
-      backgroundColor: isDarkMode ? '#119C21' : '#D8F7D7',
+    pickerText: {
+      ...styles.pickerText,
+      color: isDarkMode ? '#FFFFFF' : '#6E6D7A',
     },
-    conditionText: {
-      ...styles.conditionText,
-      color: isDarkMode ? '#FFFFFF' : '#021229',
+    imageUploadContainer: {
+      ...styles.imageUploadContainer,
+      backgroundColor: isDarkMode ? '#2d2d2d' : '#FFFFFF',
+      borderColor: isDarkMode ? '#444444' : '#E7E8EC',
     },
-    selectedConditionText: {
-      ...styles.selectedConditionText,
-      color: isDarkMode ? '#FFFFFF' : '#416B40',
+    preferenceContainer: {
+      ...styles.preferenceContainer,
+      backgroundColor: isDarkMode ? '#2d2d2d' : '#FFFFFF',
+      borderColor: isDarkMode ? '#444444' : '#E7E8EC',
     },
-    inputWithBadges: {
-      ...styles.inputWithBadges,
-      backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-      borderColor: isDarkMode ? '#333333' : '#E7E8EC',
-    },
-    badge: {
-      ...styles.badge,
-      backgroundColor: '#119C21',
-    },
-    badgeText: {
-      ...styles.badgeText,
-      color: '#FFFFFF',
-    },
-    buttonsContainer: {
-      ...styles.buttonsContainer,
-      backgroundColor: isDarkMode ? '#121212' : '#F7F5EC',
-    },
-    checkboxText: {
-      ...styles.checkboxText,
-      color: isDarkMode ? '#FFFFFF' : '#021229',
-    },
-    checkbox: {
-      ...styles.checkbox,
-      backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-      borderColor: isDarkMode ? '#333333' : '#E7E8EC',
-    },
-    selectedCheckbox: {
-      ...styles.selectedCheckbox,
-      backgroundColor: '#119C21',
-      borderColor: '#119C21',
+    preferenceText: {
+      ...styles.preferenceText,
+      color: isDarkMode ? '#FFFFFF' : '#6E6D7A',
     },
     addButton: {
       ...styles.addButton,
-      backgroundColor: '#119C21',
+      backgroundColor: isDarkMode ? '#119C21' : '#119C21',
     },
     addButtonText: {
       ...styles.addButtonText,
-      color: '#FFFFFF',
+      color: isDarkMode ? '#FFFFFF' : '#FFFFFF',
     },
-    section: {
-      ...styles.section,
-      backgroundColor: isDarkMode ? '#121212' : '#F7F5EC',
+    addItemButton: {
+      ...styles.addItemButton,
+      backgroundColor: isDarkMode ? '#119C21' : '#119C21',
     },
-    modalContainer: {
-      ...styles.modalContainer,
-      backgroundColor: isDarkMode ? 'rgba(30, 30, 30, 0.9)' : 'rgba(0, 0, 0, 0.5)',
-    },
-    modalContent: {
-      ...styles.modalContent,
-      backgroundColor: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-    },
-    modalTitle: {
-      ...styles.modalTitle,
-      color: isDarkMode ? '#FFFFFF' : '#021229',
-    },
-    modalItem: {
-      ...styles.modalItem,
-      borderBottomColor: isDarkMode ? '#333333' : '#E7E8EC',
-    },
-    modalItemText: {
-      ...styles.modalItemText,
-      color: isDarkMode ? '#FFFFFF' : '#021229',
+    addItemButtonText: {
+      ...styles.addItemButtonText,
+      color: isDarkMode ? '#FFFFFF' : '#FFFFFF',
     },
   };
 
   return (
     <View style={themedStyles.container}>
-      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} backgroundColor={isDarkMode ? "#121212" : "#F7F5EC"} />
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} backgroundColor={isDarkMode ? '#121212' : '#F7F5EC'} />
       
-      {/* App Bar */}
-      <View style={themedStyles.appBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={themedStyles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={isDarkMode ? "#FFFFFF" : "#021229"} />
+      {/* Header */}
+      <View style={themedStyles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={isDarkMode ? '#FFFFFF' : '#021229'} />
         </TouchableOpacity>
-        <Text style={themedStyles.appBarTitle}>Add Item</Text>
+        <Text style={themedStyles.title}>Add Item</Text>
         <View style={{ width: 24 }} /> {/* Spacer for alignment */}
       </View>
 
-      <ScrollView style={themedStyles.content} showsVerticalScrollIndicator={false}>
-        <Text style={themedStyles.header}>Add Item</Text>
-        
-        {/* Photos Section */}
-        <View style={themedStyles.section}>
-          <View style={themedStyles.labelContainer}>
-            <Text style={themedStyles.label}>Photos</Text>
-            <Text style={themedStyles.helperText}>Min 3 & Max 7 photos (each up to 10 MB)</Text>
-          </View>
-          <View style={themedStyles.photosRow}>
-            <TouchableOpacity style={themedStyles.addPhotoButton} onPress={selectImage}>
-              <View style={themedStyles.plusIconContainer}>
-                <Ionicons name="plus" size={24} color={isDarkMode ? "#FFFFFF" : "#416B40"} />
-              </View>
-            </TouchableOpacity>
+      {/* Verification Alert Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showVerificationAlert}
+        onRequestClose={handleGoBack}
+      >
+        <View style={themedStyles.centeredView}>
+          <View style={themedStyles.modalView}>
+            <View style={themedStyles.iconContainer}>
+              <Ionicons name="alert-circle-outline" size={48} color="#FF9500" />
+            </View>
             
-            {/* Photo placeholders */}
-            {images.map((imageUri, index) => (
-              <View key={index} style={themedStyles.photoContainer}>
-                <Image source={{ uri: imageUri }} style={themedStyles.photoPlaceholder} />
-                <TouchableOpacity 
-                  style={themedStyles.removePhotoButton}
-                  onPress={() => removeImage(index)}
-                >
-                  <Ionicons name="close" size={16} color="#fff" />
-                </TouchableOpacity>
-              </View>
-            ))}
+            <Text style={themedStyles.modalTitle}>Email Verification Required</Text>
+            
+            <Text style={themedStyles.modalMessage}>
+              Please verify your email address to add items and access other features.
+            </Text>
+            
+            <View style={themedStyles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[themedStyles.modalButton, themedStyles.verifyButton]}
+                onPress={handleVerifyEmail}
+              >
+                <Text style={themedStyles.verifyButtonText}>Verify Email</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[themedStyles.modalButton, themedStyles.cancelButton]}
+                onPress={handleGoBack}
+              >
+                <Text style={themedStyles.cancelButtonText}>Go Back</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
+      </Modal>
 
-        {/* Item Type Section */}
+      {/* Form */}
+      <ScrollView style={themedStyles.formContainer} contentContainerStyle={themedStyles.formContent}>
+        {/* Item Type Selector */}
         <View style={themedStyles.section}>
           <Text style={themedStyles.label}>Item Type</Text>
-          <View style={themedStyles.selectorRow}>
-            <TouchableOpacity 
-              style={[themedStyles.listItem, itemType === 'swap' && themedStyles.selectedListItem]}
+          <View style={themedStyles.segmentedControl}>
+            <TouchableOpacity
+              style={[themedStyles.segment, itemType === 'swap' && themedStyles.activeSegment]}
               onPress={() => setItemType('swap')}
             >
-              <View style={themedStyles.leftAdornment}>
-                <Ionicons name="repeat" size={20} color={itemType === 'swap' ? (isDarkMode ? '#FFFFFF' : '#416B40') : (isDarkMode ? '#FFFFFF' : '#021229')} />
-              </View>
-              <View style={themedStyles.textContainer}>
-                <Text style={[themedStyles.primaryText, itemType === 'swap' && themedStyles.selectedPrimaryText]}>Swap It</Text>
-                <Text style={themedStyles.secondaryText}>Exchange for other items</Text>
-              </View>
+              <Text style={[themedStyles.segmentText, itemType === 'swap' && themedStyles.activeSegmentText]}>Swap</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[themedStyles.listItem, itemType === 'drop' && themedStyles.selectedListItem]}
+            <TouchableOpacity
+              style={[themedStyles.segment, itemType === 'drop' && themedStyles.activeSegment]}
               onPress={() => setItemType('drop')}
             >
-              <View style={themedStyles.leftAdornment}>
-                <Ionicons name="arrow-redo" size={20} color={itemType === 'drop' ? (isDarkMode ? '#FFFFFF' : '#416B40') : (isDarkMode ? '#FFFFFF' : '#021229')} />
-              </View>
-              <View style={themedStyles.textContainer}>
-                <Text style={[themedStyles.primaryText, itemType === 'drop' && themedStyles.selectedPrimaryText]}>Drop It</Text>
-                <Text style={themedStyles.secondaryText}>Give away for free</Text>
-              </View>
+              <Text style={[themedStyles.segmentText, itemType === 'drop' && themedStyles.activeSegmentText]}>Drop Off</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Title Input */}
+        {/* Title */}
         <View style={themedStyles.section}>
           <Text style={themedStyles.label}>Title</Text>
           <TextInput
             style={themedStyles.input}
-            placeholder="ex: iPhone"
+            placeholder="Enter item title"
+            placeholderTextColor={isDarkMode ? '#888888' : '#C7D1D9'}
             value={title}
             onChangeText={setTitle}
-            placeholderTextColor={isDarkMode ? "#B0B0B0" : "#6E6D7A"}
-            color={isDarkMode ? "#FFFFFF" : "#021229"}
           />
         </View>
 
-        {/* Description Input */}
+        {/* Description */}
         <View style={themedStyles.section}>
           <Text style={themedStyles.label}>Description</Text>
           <TextInput
             style={[themedStyles.input, themedStyles.textArea]}
-            placeholder="Tell others about this item..."
+            placeholder="Describe your item"
+            placeholderTextColor={isDarkMode ? '#888888' : '#C7D1D9'}
             value={description}
             onChangeText={setDescription}
             multiline
             numberOfLines={4}
-            placeholderTextColor={isDarkMode ? "#B0B0B0" : "#6E6D7A"}
-            color={isDarkMode ? "#FFFFFF" : "#021229"}
+            textAlignVertical="top"
           />
         </View>
 
-        {/* Category Input */}
+        {/* Category */}
         <View style={themedStyles.section}>
           <Text style={themedStyles.label}>Category</Text>
-          <TouchableOpacity 
-            style={themedStyles.input} 
+          <TouchableOpacity
+            style={themedStyles.pickerContainer}
             onPress={() => setShowCategoryModal(true)}
           >
-            <Text style={category ? themedStyles.primaryText : themedStyles.placeholderText}>
-              {category || 'Select Category'}
+            <Text style={themedStyles.pickerText}>
+              {category || 'Select category'}
             </Text>
-            <Ionicons name="chevron-down" size={20} color={isDarkMode ? "#FFFFFF" : "#021229"} />
+            <Ionicons name="chevron-down" size={20} color={isDarkMode ? '#FFFFFF' : '#6E6D7A'} />
           </TouchableOpacity>
         </View>
 
-        {/* Condition Selector */}
+        {/* Condition */}
         <View style={themedStyles.section}>
           <Text style={themedStyles.label}>Condition</Text>
-          <TouchableOpacity 
-            style={themedStyles.input} 
+          <TouchableOpacity
+            style={themedStyles.pickerContainer}
             onPress={() => setShowConditionModal(true)}
           >
-            <Text style={condition ? themedStyles.primaryText : themedStyles.placeholderText}>
-              {condition || 'Select Condition'}
+            <Text style={themedStyles.pickerText}>
+              {condition}
             </Text>
-            <Ionicons name="chevron-down" size={20} color={isDarkMode ? "#FFFFFF" : "#021229"} />
+            <Ionicons name="chevron-down" size={20} color={isDarkMode ? '#FFFFFF' : '#6E6D7A'} />
           </TouchableOpacity>
         </View>
 
-        {/* Location Input */}
+        {/* Location */}
         <View style={themedStyles.section}>
           <Text style={themedStyles.label}>Location</Text>
-          <View style={themedStyles.inputWithIcon}>
+          <View style={themedStyles.locationContainer}>
             <TextInput
-              style={[themedStyles.input, { flex: 1, paddingRight: 40 }]}
+              style={[themedStyles.input, themedStyles.locationInput]}
               placeholder="Enter location"
+              placeholderTextColor={isDarkMode ? '#888888' : '#C7D1D9'}
               value={location}
               onChangeText={setLocation}
-              placeholderTextColor={isDarkMode ? "#B0B0B0" : "#6E6D7A"}
-              color={isDarkMode ? "#FFFFFF" : "#021229"}
             />
-            <TouchableOpacity style={themedStyles.inputIcon} onPress={getCurrentLocation}>
-              <Ionicons name="location" size={20} color={isDarkMode ? "#FFFFFF" : "#021229"} />
+            <TouchableOpacity style={themedStyles.locationButton}>
+              <Ionicons name="location" size={20} color="#021229" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Swap Preferences */}
+        {/* Images */}
         <View style={themedStyles.section}>
-          <View style={themedStyles.labelContainer}>
-            <Text style={themedStyles.label}>Swap Preferences</Text>
-            <Text style={themedStyles.helperText}>What items would you like to receive in exchange?</Text>
-          </View>
-          <View style={themedStyles.inputWithBadges}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={themedStyles.badgesContainer}>
-              {swapPreferences.map((pref, index) => (
-                <View key={index} style={themedStyles.badge}>
-                  <Text style={themedStyles.badgeText}>{pref}</Text>
-                  <TouchableOpacity onPress={() => removePreference(index)}>
-                    <Ionicons name="close" size={12} color="#FFFFFF" style={{ marginLeft: 4 }} />
+          <Text style={themedStyles.label}>Images</Text>
+          <TouchableOpacity style={themedStyles.imageUploadContainer} onPress={selectImage}>
+            <Ionicons name="camera" size={24} color={isDarkMode ? '#FFFFFF' : '#6E6D7A'} />
+            <Text style={themedStyles.imageUploadText}>Upload Images</Text>
+          </TouchableOpacity>
+          
+          {/* Image previews */}
+          {images.length > 0 && (
+            <ScrollView horizontal style={themedStyles.imagePreviewContainer}>
+              {images.map((uri, index) => (
+                <View key={index} style={themedStyles.imagePreviewWrapper}>
+                  <Image source={{ uri }} style={themedStyles.imagePreview} />
+                  <TouchableOpacity
+                    style={themedStyles.removeImageButton}
+                    onPress={() => removeImage(index)}
+                  >
+                    <Ionicons name="close" size={16} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
               ))}
             </ScrollView>
+          )}
+        </View>
+
+        {/* Swap Preferences (only for swap items) */}
+        {itemType === 'swap' && (
+          <View style={themedStyles.section}>
+            <Text style={themedStyles.label}>Swap Preferences</Text>
+            <View style={themedStyles.preferenceContainer}>
+              <TextInput
+                style={[themedStyles.input, themedStyles.preferenceInput]}
+                placeholder="What would you like to swap for?"
+                placeholderTextColor={isDarkMode ? '#888888' : '#C7D1D9'}
+                value={newPreference}
+                onChangeText={setNewPreference}
+              />
+              <TouchableOpacity style={themedStyles.addButton} onPress={addPreference}>
+                <Ionicons name="add" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            
+            {/* Preference tags */}
+            {swapPreferences.length > 0 && (
+              <View style={themedStyles.preferenceTagsContainer}>
+                {swapPreferences.map((preference, index) => (
+                  <View key={index} style={themedStyles.preferenceTag}>
+                    <Text style={themedStyles.preferenceText}>{preference}</Text>
+                    <TouchableOpacity onPress={() => removePreference(index)}>
+                      <Ionicons name="close" size={16} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
-          
-          <View style={{ flexDirection: 'row', marginTop: 8 }}>
-            <TextInput
-              style={[themedStyles.input, { flex: 1, marginRight: 8 }]}
-              placeholder="Add preference (e.g. Books, Electronics)"
-              value={newPreference}
-              onChangeText={setNewPreference}
-              placeholderTextColor={isDarkMode ? "#B0B0B0" : "#6E6D7A"}
-              color={isDarkMode ? "#FFFFFF" : "#021229"}
-              onSubmitEditing={addPreference}
-            />
-            <TouchableOpacity style={themedStyles.addButtonSmall} onPress={addPreference}>
-              <Ionicons name="add" size={20} color="#FFFFFF" />
+        )}
+
+        {/* Add Another Toggle */}
+        <View style={themedStyles.section}>
+          <View style={themedStyles.toggleContainer}>
+            <Text style={themedStyles.toggleLabel}>Add another item after this</Text>
+            <TouchableOpacity
+              style={[themedStyles.toggle, addAnother && themedStyles.toggleActive]}
+              onPress={() => setAddAnother(!addAnother)}
+            >
+              <View style={[themedStyles.toggleThumb, addAnother && themedStyles.toggleThumbActive]} />
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
-      {/* Buttons */}
-      <View style={themedStyles.buttonsContainer}>
-        <TouchableOpacity 
-          style={themedStyles.checkboxContainer}
-          onPress={() => setAddAnother(!addAnother)}
-        >
-          <View style={[themedStyles.checkbox, addAnother && themedStyles.selectedCheckbox]}>
-            {addAnother && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
-          </View>
-          <Text style={themedStyles.checkboxText}>Add another item</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={themedStyles.addButton} onPress={handleAddItem}>
-          <Text style={themedStyles.addButtonText}>Add Item</Text>
+      {/* Add Item Button */}
+      <View style={themedStyles.buttonContainer}>
+        <TouchableOpacity style={themedStyles.addItemButton} onPress={handleAddItem}>
+          <Text style={themedStyles.addItemButtonText}>Add Item</Text>
         </TouchableOpacity>
       </View>
 
@@ -578,12 +522,12 @@ const AddItemScreen = ({ navigation }) => {
         visible={showCategoryModal}
         onRequestClose={() => setShowCategoryModal(false)}
       >
-        <View style={themedStyles.modalContainer}>
-          <View style={themedStyles.modalContent}>
+        <View style={themedStyles.centeredView}>
+          <View style={themedStyles.modalView}>
             <View style={themedStyles.modalHeader}>
               <Text style={themedStyles.modalTitle}>Select Category</Text>
               <TouchableOpacity onPress={() => setShowCategoryModal(false)}>
-                <Ionicons name="close" size={24} color={isDarkMode ? "#FFFFFF" : "#021229"} />
+                <Ionicons name="close" size={24} color={isDarkMode ? '#FFFFFF' : '#021229'} />
               </TouchableOpacity>
             </View>
             <ScrollView>
@@ -611,12 +555,12 @@ const AddItemScreen = ({ navigation }) => {
         visible={showConditionModal}
         onRequestClose={() => setShowConditionModal(false)}
       >
-        <View style={themedStyles.modalContainer}>
-          <View style={themedStyles.modalContent}>
+        <View style={themedStyles.centeredView}>
+          <View style={themedStyles.modalView}>
             <View style={themedStyles.modalHeader}>
               <Text style={themedStyles.modalTitle}>Select Condition</Text>
               <TouchableOpacity onPress={() => setShowConditionModal(false)}>
-                <Ionicons name="close" size={24} color={isDarkMode ? "#FFFFFF" : "#021229"} />
+                <Ionicons name="close" size={24} color={isDarkMode ? '#FFFFFF' : '#021229'} />
               </TouchableOpacity>
             </View>
             <ScrollView>
@@ -640,10 +584,7 @@ const AddItemScreen = ({ navigation }) => {
       {/* Boost Item Popup */}
       <BoostItemPopup
         visible={showBoostPopup}
-        onClose={() => {
-          setShowBoostPopup(false);
-          navigation.goBack();
-        }}
+        onClose={() => setShowBoostPopup(false)}
         onBoost={handleBoostItem}
       />
     </View>
@@ -655,7 +596,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F7F5EC',
   },
-  appBar: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -664,272 +605,249 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F5EC',
     paddingTop: 50,
   },
-  backButton: {
-    padding: 4,
-  },
-  appBarTitle: {
+  title: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: '#021229',
   },
-  content: {
+  formContainer: {
     flex: 1,
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#021229',
+    backgroundColor: '#FFFFFF',
     margin: 16,
+    borderRadius: 16,
+    padding: 16,
+  },
+  formContent: {
+    paddingBottom: 16,
   },
   section: {
-    marginBottom: 24,
-    marginHorizontal: 16,
-  },
-  labelContainer: {
-    marginBottom: 8,
+    marginBottom: 16,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
     color: '#021229',
-    marginBottom: 4,
-  },
-  helperText: {
-    fontSize: 12,
-    color: '#6E6D7A',
-  },
-  photosRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  addPhotoButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E7E8EC',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  plusIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#D8F7D7',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  photoContainer: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  photoPlaceholder: {
-    width: 80,
-    height: 80,
-    borderRadius: 16,
-    backgroundColor: '#E7E8EC',
-  },
-  removePhotoButton: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F44336',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectorRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  listItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E7E8EC',
-  },
-  selectedListItem: {
-    borderColor: '#416B40',
-    backgroundColor: '#D8F7D7',
-  },
-  leftAdornment: {
-    marginRight: 12,
-  },
-  textContainer: {
-    flex: 1,
-  },
-  primaryText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#021229',
-    marginBottom: 4,
-  },
-  selectedPrimaryText: {
-    color: '#416B40',
-  },
-  secondaryText: {
-    fontSize: 12,
-    color: '#6E6D7A',
+    marginBottom: 8,
   },
   input: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E7E8EC',
-  },
-  placeholderText: {
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     fontSize: 16,
     color: '#6E6D7A',
   },
   textArea: {
     height: 100,
-    textAlignVertical: 'top',
+    paddingTop: 12,
   },
-  inputWithIcon: {
-    position: 'relative',
-  },
-  inputIcon: {
-    position: 'absolute',
-    right: 16,
-    top: 12,
-  },
-  conditionBadges: {
+  segmentedControl: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  conditionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E7E8EC',
-    backgroundColor: '#FFFFFF',
-  },
-  selectedConditionBadge: {
-    borderColor: '#416B40',
-    backgroundColor: '#D8F7D7',
-  },
-  conditionText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#021229',
-    marginLeft: 4,
-  },
-  selectedConditionText: {
-    color: '#416B40',
-  },
-  inputWithBadges: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: '#F7F5EC',
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E7E8EC',
+    padding: 4,
   },
-  badgesContainer: {
-    flexDirection: 'row',
-  },
-  badge: {
-    flexDirection: 'row',
+  segment: {
+    flex: 1,
+    paddingVertical: 12,
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 12,
+  },
+  activeSegment: {
     backgroundColor: '#119C21',
-    marginRight: 8,
   },
-  badgeText: {
+  segmentText: {
+    fontSize: 16,
+    color: '#6E6D7A',
+  },
+  activeSegmentText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  buttonsContainer: {
+  pickerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7E8EC',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#F7F5EC',
+    paddingVertical: 12,
   },
-  checkboxContainer: {
+  pickerText: {
+    fontSize: 16,
+    color: '#6E6D7A',
+  },
+  locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#E7E8EC',
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+  locationInput: {
+    flex: 1,
     marginRight: 8,
   },
-  selectedCheckbox: {
-    backgroundColor: '#119C21',
-    borderColor: '#119C21',
+  locationButton: {
+    backgroundColor: '#D8F7D7',
+    borderRadius: 16,
+    padding: 12,
   },
-  checkboxText: {
+  imageUploadContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7E8EC',
+    borderRadius: 16,
+    padding: 16,
+  },
+  imageUploadText: {
+    fontSize: 16,
+    color: '#6E6D7A',
+    marginLeft: 8,
+  },
+  imagePreviewContainer: {
+    marginTop: 12,
+  },
+  imagePreviewWrapper: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  imagePreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#FF3B30',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  preferenceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7E8EC',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  preferenceInput: {
+    flex: 1,
+    borderWidth: 0,
+    padding: 0,
+    backgroundColor: 'transparent',
+  },
+  addButton: {
+    backgroundColor: '#119C21',
+    borderRadius: 16,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  preferenceTagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+  },
+  preferenceTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#119C21',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  preferenceText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    marginRight: 4,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  toggleLabel: {
     fontSize: 16,
     color: '#021229',
   },
-  addButton: {
-    flex: 1,
-    marginLeft: 16,
-    paddingVertical: 16,
+  toggle: {
+    width: 50,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E7E8EC',
+    justifyContent: 'center',
+    padding: 2,
+  },
+  toggleActive: {
+    backgroundColor: '#119C21',
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  toggleThumbActive: {
+    marginLeft: 26,
+  },
+  buttonContainer: {
+    padding: 16,
+  },
+  addItemButton: {
+    backgroundColor: '#119C21',
     borderRadius: 16,
-    backgroundColor: '#119C21',
-    justifyContent: 'center',
+    padding: 16,
     alignItems: 'center',
-  },
-  addButtonSmall: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#119C21',
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  addButtonText: {
+  addItemButtonText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#FFFFFF',
   },
-  modalContainer: {
+  centeredView: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '50%',
+  modalView: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    width: '80%',
+    maxWidth: 350,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E7E8EC',
+    width: '100%',
+    marginBottom: 16,
   },
   modalTitle: {
     fontSize: 18,
@@ -944,6 +862,45 @@ const styles = StyleSheet.create({
   modalItemText: {
     fontSize: 16,
     color: '#021229',
+  },
+  iconContainer: {
+    marginBottom: 16,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#6E6D7A',
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtonContainer: {
+    flexDirection: 'column',
+    width: '100%',
+    gap: 12,
+  },
+  modalButton: {
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyButton: {
+    backgroundColor: '#119C21',
+  },
+  verifyButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  cancelButton: {
+    backgroundColor: '#F7F5EC',
+    borderWidth: 1,
+    borderColor: '#E7E8EC',
+  },
+  cancelButtonText: {
+    color: '#021229',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

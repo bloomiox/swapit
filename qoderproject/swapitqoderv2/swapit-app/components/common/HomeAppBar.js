@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const HomeAppBar = ({ location, onLocationPress, onSearchPress, onNotificationsPress }) => {
+const HomeAppBar = ({ location, onLocationPress, onSearchPress, onNotificationsPress, unreadNotificationCount = 0 }) => {
   return (
     <View style={styles.appBar}>
       <TouchableOpacity style={styles.locationContainer} onPress={onLocationPress}>
@@ -22,9 +22,13 @@ const HomeAppBar = ({ location, onLocationPress, onSearchPress, onNotificationsP
           onPress={onNotificationsPress}
         >
           <Ionicons name="notifications" size={24} color="#021229" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeLabel}>2</Text>
-          </View>
+          {unreadNotificationCount > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.badgeLabel}>
+                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
     </View>

@@ -1,29 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 // Import new components
 import ItemCard from '../components/items/ItemCard';
+// Import API service
+import { getUserItems } from '../utils/api';
+// Import Auth context
+import { useAuth } from '../contexts/AuthContext';
 
 const ProfileScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('My Items');
-  
-  // Sample user data
-  const user = {
-    name: 'John Doe',
-    bio: 'Eco-conscious swapper. Love giving items a second life!',
-    joinDate: 'Joined at 19 Dec 2024',
-    location: 'Rorschach, Sankt Gallen',
-    swaps: 24,
-    items: 4,
-    rating: 4.5,
+  const [user, setUser] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { logout, user: authUser, isEmailVerified } = useAuth();
+
+  // Fetch user data and items from Supabase
+  useEffect(() => {
+    fetchUserData();
+    fetchUserItems();
+  }, [authUser]);
+
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Check if user is logged in
+      if (!authUser) {
+        throw new Error('No user logged in');
+      }
+      
+      // Use the user profile from auth context
+      if (authUser.profile) {
+        setUser(authUser.profile);
+      } else {
+        setUser({
+          name: authUser.email?.split('@')[0] || 'User',
+          email: authUser.email,
+          bio: '',
+          location: ''
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      setError('Failed to load user data. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const items = [
-    { id: '1', name: 'iPhone', location: 'Berkeley CA · 9.3km' },
-    { id: '2', name: 'Office Bag', location: 'Berkeley CA · 9.3km', free: true },
-    { id: '3', name: 'Wooden table with stool', location: 'Berkeley CA · 9.3km' },
-    { id: '4', name: 'Original Airpods 2', location: 'Berkeley CA · 9.3km' },
-  ];
+  const fetchUserItems = async () => {
+    try {
+      // Check if user is logged in
+      if (!authUser) {
+        throw new Error('No user logged in');
+      }
+      
+      // Fetch user items
+      const userItems = await getUserItems(authUser.id);
+      setItems(userItems);
+    } catch (error) {
+      console.error('Error fetching user items:', error);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -31,13 +72,21 @@ const ProfileScreen = ({ navigation }) => {
       'Are you sure you want to logout?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', onPress: () => navigation.replace('Login') }
+        { text: 'Logout', onPress: () => {
+            logout();
+            navigation.replace('Login');
+          } 
+        }
       ]
     );
   };
 
   const handleHelp = () => {
     navigation.navigate('Help');
+  };
+
+  const handleVerifyEmail = () => {
+    navigation.navigate('EmailVerification');
   };
 
   const renderTab = (tabName, badgeCount) => (
@@ -51,6 +100,42 @@ const ProfileScreen = ({ navigation }) => {
       </View>
     </TouchableOpacity>
   );
+
+  // Render loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text>Loading profile...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchUserData}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Render empty state
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <Text>User not found</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -88,41 +173,62 @@ const ProfileScreen = ({ navigation }) => {
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>JD</Text>
+                <Text style={styles.avatarText}>
+                  {user.name ? user.name.split(' ').map(n => n[0]).join('') : 'U'}
+                </Text>
               </View>
+              {/* Unverified indicator - only shown to unverified users */}
+              {!isEmailVerified() && (
+                <View style={styles.unverifiedIndicator}>
+                  <Text style={styles.unverifiedText}>!</Text>
+                </View>
+              )}
               <TouchableOpacity style={styles.cameraButton}>
                 <Ionicons name="camera" size={16} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
             <View style={styles.userInfo}>
-              <Text style={styles.userName}>{user.name}</Text>
-              <Text style={styles.userBio}>{user.bio}</Text>
+              <Text style={styles.userName}>{user.name || 'Unknown User'}</Text>
+              <Text style={styles.userBio}>{user.bio || 'No bio available'}</Text>
             </View>
           </View>
+          
+          {/* Verification Banner - only shown to unverified users */}
+          {!isEmailVerified() && (
+            <View style={styles.verificationBanner}>
+              <View style={styles.verificationContent}>
+                <Ionicons name="alert-circle-outline" size={20} color="#FF9500" />
+                <Text style={styles.verificationText}>Email not verified</Text>
+                <TouchableOpacity style={styles.verifyButton} onPress={handleVerifyEmail}>
+                  <Text style={styles.verifyButtonText}>Verify</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           
           <View style={styles.userDetails}>
             <View style={styles.detailRow}>
               <Ionicons name="calendar" size={16} color="#6E6D7A" />
-              <Text style={styles.detailText}>{user.joinDate}</Text>
+              <Text style={styles.detailText}>{user.join_date ? new Date(user.join_date).toLocaleDateString() : 'Join date not available'}</Text>
             </View>
             <View style={styles.detailRow}>
               <Ionicons name="location" size={16} color="#6E6D7A" />
-              <Text style={styles.detailText}>{user.location}</Text>
+              <Text style={styles.detailText}>{user.location || 'Location not available'}</Text>
             </View>
           </View>
           
           <View style={styles.statsContainer}>
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{user.swaps}</Text>
+              <Text style={styles.statNumber}>{user.swaps || 0}</Text>
               <Text style={styles.statLabel}>Swaps</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{user.items}</Text>
+              <Text style={styles.statNumber}>{user.items || 0}</Text>
               <Text style={styles.statLabel}>Items</Text>
             </View>
             <View style={styles.statBox}>
               <View style={styles.ratingContainer}>
-                <Text style={styles.statNumber}>{user.rating}</Text>
+                <Text style={styles.statNumber}>{user.rating || 0}</Text>
                 <Ionicons name="star" size={16} color="#FFC107" />
               </View>
               <Text style={styles.statLabel}>Ratings</Text>
@@ -137,8 +243,8 @@ const ProfileScreen = ({ navigation }) => {
         
         {/* Tabs */}
         <View style={styles.tabsContainer}>
-          {renderTab('My Items', 12)}
-          {renderTab('Saved Items', 3)}
+          {renderTab('My Items', user.items || 0)}
+          {renderTab('Saved Items', 0)} // TODO: Fetch saved items count from Supabase
         </View>
         
         {/* Items Grid */}
@@ -221,6 +327,24 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
+  unverifiedIndicator: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FF3B30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  unverifiedText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
   cameraButton: {
     position: 'absolute',
     bottom: 0,
@@ -244,6 +368,36 @@ const styles = StyleSheet.create({
   userBio: {
     fontSize: 14,
     color: '#6E6D7A',
+  },
+  verificationBanner: {
+    backgroundColor: '#FFF4E5',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FFE5B4',
+    marginBottom: 16,
+  },
+  verificationContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  verificationText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#021229',
+    marginLeft: 12,
+  },
+  verifyButton: {
+    backgroundColor: '#FF9500',
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  verifyButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   userDetails: {
     marginBottom: 16,
@@ -369,6 +523,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#119C21',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

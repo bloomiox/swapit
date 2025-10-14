@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, StatusBar, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, StatusBar, Dimensions, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // Import components
 import ItemCard from '../components/items/ItemCard';
 import SectionHeader from '../components/common/SectionHeader';
 import FilterChip from '../components/filters/FilterChip';
 import AppliedFilterChip from '../components/filters/AppliedFilterChip';
 import HomeAppBar from '../components/common/HomeAppBar';
+import VerificationModal from '../components/common/VerificationModal';
+// Import API service
+import { getItems, getCategories, getConditions, getNotifications } from '../utils/api';
+// Import Auth context
+import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -21,38 +27,146 @@ const HomeScreen = ({ navigation }) => {
     distance: 10,
     free: false
   });
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
-  // Sample data for items
-  const featuredItems = [
-    { id: '1', title: 'Stool', location: 'Berkeley CA · 9.3km', image: null, free: true },
-  ];
+  // State for items data (will be fetched from Supabase)
+  const [featuredItems, setFeaturedItems] = useState([]);
+  const [recommendedItems, setRecommendedItems] = useState([]);
+  const [trendingItems, setTrendingItems] = useState([]);
+  const [exploreItems, setExploreItems] = useState([]);
 
-  const recommendedItems = [
-    { id: '2', title: 'Stool', location: 'Berkeley CA · 9.3km', image: null, free: true },
-    { id: '3', title: 'Designer Handbag', location: 'Berkeley CA · 9.3km', image: null, free: false },
-    { id: '4', title: 'Sofa chair', location: 'Berkeley CA · 9.3km', image: null, free: false },
-  ];
+  // State for loading
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState([]);
+  const [conditions, setConditions] = useState([]);
+  const { user, isEmailVerified } = useAuth();
 
-  const trendingItems = [
-    { id: '5', title: 'Leather bag with original strap and long 3 pockets', location: 'Berkeley CA · 9.3km', image: null, free: false },
-    { id: '6', title: 'Sofa chair', location: 'Berkeley CA · 9.3km', image: null, free: false },
-    { id: '7', title: 'Chair', location: 'Berkeley CA · 9.3km', image: null, free: false },
-  ];
+  // Fetch unread notifications count
+  useEffect(() => {
+    fetchUnreadNotificationCount();
+  }, [user]);
 
-  const exploreItems = [
-    { id: '8', title: 'iPhone', location: 'Berkeley CA · 9.3km', image: null, free: false },
-    { id: '9', title: 'Office Bag', location: 'Berkeley CA · 9.3km', image: null, free: true },
-    { id: '10', title: 'Wooden table with stool', location: 'Berkeley CA · 9.3km', image: null, free: false },
-    { id: '11', title: 'Original Airpods 2', location: 'Berkeley CA · 9.3km', image: null, free: false },
-  ];
+  const fetchUnreadNotificationCount = async () => {
+    if (!user) return;
+    
+    try {
+      const notifications = await getNotifications(user.id);
+      const unreadCount = notifications.filter(notification => !notification.read).length;
+      setUnreadNotificationCount(unreadCount);
+    } catch (error) {
+      console.error('Error fetching unread notifications:', error);
+      setUnreadNotificationCount(0);
+    }
+  };
 
-  // Sample filter data
-  const filterOptions = [
-    { id: 'category', title: 'Category', icon: 'grid-outline' },
-    { id: 'condition', title: 'Condition', icon: 'heart-half' },
-    { id: 'distance', title: 'Distance', icon: 'location-outline' },
-    { id: 'free', title: 'Free', icon: 'pricetag-outline' },
-  ];
+  // Show verification modal when user is not verified
+  useEffect(() => {
+    console.log('=== HomeScreen useEffect triggered ===');
+    console.log('User object:', user);
+    console.log('User type:', typeof user);
+    
+    // Check if user is logged in
+    if (!user) {
+      console.log('No user logged in - not showing verification modal');
+      return;
+    }
+    
+    // Check if user object is valid
+    if (typeof user !== 'object' || user === null) {
+      console.log('User object is invalid - not showing verification modal');
+      return;
+    }
+    
+    // Check if user has an ID
+    if (!user.id) {
+      console.log('User object missing ID - not showing verification modal');
+      return;
+    }
+    
+    console.log('User ID:', user.id);
+    
+    // Log all properties of the user object
+    console.log('User object properties:');
+    for (let key in user) {
+      console.log(`  ${key}: ${user[key]}`);
+    }
+    
+    // Check if user's email is verified
+    const verified = isEmailVerified();
+    console.log('User verification status:', verified);
+    
+    if (!verified) {
+      // Check if we've already shown the modal for this user
+      checkAndShowVerificationModal();
+    } else {
+      console.log('User is verified - not showing verification modal');
+    }
+    
+    console.log('=== End of HomeScreen useEffect ===');
+  }, [user, isEmailVerified]);
+
+  const checkAndShowVerificationModal = async () => {
+    try {
+      // Create a unique key for each user
+      const storageKey = `hasShownVerificationModal_${user.id}`;
+      
+      // Check if we've already shown the modal for this user
+      const hasShownModal = await AsyncStorage.getItem(storageKey);
+      
+      if (!hasShownModal) {
+        console.log('User is not verified and modal has not been shown - showing modal');
+        setShowVerificationModal(true);
+        
+        // Mark that we've shown the modal for this user
+        await AsyncStorage.setItem(storageKey, 'true');
+      } else {
+        console.log('User is not verified but modal has already been shown');
+      }
+    } catch (error) {
+      console.log('Error checking if modal has been shown:', error);
+      // Show the modal anyway if there's an error
+      setShowVerificationModal(true);
+    }
+  };
+
+  // Fetch items data from Supabase
+  useEffect(() => {
+    fetchItemsData();
+    fetchCategoriesAndConditions();
+  }, []);
+
+  const fetchItemsData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all items
+      const items = await getItems();
+      
+      // For demo purposes, we'll distribute items across sections
+      // In a real app, you would have specific queries for each section
+      setFeaturedItems(items.slice(0, 5));
+      setRecommendedItems(items.slice(5, 10));
+      setTrendingItems(items.slice(10, 15));
+      setExploreItems(items.slice(15, 20));
+    } catch (error) {
+      console.error('Error fetching items:', error);
+      Alert.alert('Error', 'Failed to load items. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCategoriesAndConditions = async () => {
+    try {
+      const categoriesData = await getCategories();
+      const conditionsData = await getConditions();
+      setCategories(categoriesData);
+      setConditions(conditionsData);
+    } catch (error) {
+      console.error('Error fetching categories/conditions:', error);
+    }
+  };
 
   // Get user location
   useEffect(() => {
@@ -90,6 +204,7 @@ const HomeScreen = ({ navigation }) => {
       case 'category':
         navigation.navigate('CategoryFilter', {
           selectedCategory: selectedFilters.category,
+          categories: categories,
           onCategorySelect: (category) => {
             setSelectedFilters(prev => ({ ...prev, category }));
             // Add to applied filters
@@ -98,7 +213,7 @@ const HomeScreen = ({ navigation }) => {
                 // Remove existing category filter if any
                 const filtered = prev.filter(f => f.type !== 'category');
                 // Add new category filter
-                return [...filtered, { type: 'category', value: getCategoryName(category), icon: 'grid-outline' }];
+                return [...filtered, { type: 'category', value: category.name, icon: 'grid-outline' }];
               });
             } else {
               // Remove category filter
@@ -110,6 +225,7 @@ const HomeScreen = ({ navigation }) => {
       case 'condition':
         navigation.navigate('ConditionFilter', {
           selectedCondition: selectedFilters.condition,
+          conditions: conditions,
           onConditionSelect: (condition) => {
             setSelectedFilters(prev => ({ ...prev, condition }));
             // Add to applied filters
@@ -118,7 +234,7 @@ const HomeScreen = ({ navigation }) => {
                 // Remove existing condition filter if any
                 const filtered = prev.filter(f => f.type !== 'condition');
                 // Add new condition filter
-                return [...filtered, { type: 'condition', value: getConditionName(condition), icon: 'heart-half' }];
+                return [...filtered, { type: 'condition', value: condition.name, icon: 'heart-half' }];
               });
             } else {
               // Remove condition filter
@@ -157,31 +273,6 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  const getCategoryName = (categoryId) => {
-    const categories = [
-      { id: '1', name: 'Electronics' },
-      { id: '2', name: 'Clothing' },
-      { id: '3', name: 'Books' },
-      { id: '4', name: 'Furniture' },
-      { id: '5', name: 'Sports' },
-      { id: '6', name: 'Toys' },
-    ];
-    const category = categories.find(c => c.id === categoryId);
-    return category ? category.name : '';
-  };
-
-  const getConditionName = (conditionId) => {
-    const conditions = [
-      { id: '1', name: 'New' },
-      { id: '2', name: 'Like New' },
-      { id: '3', name: 'Good' },
-      { id: '4', name: 'Fair' },
-      { id: '5', name: 'Poor' },
-    ];
-    const condition = conditions.find(c => c.id === conditionId);
-    return condition ? condition.name : '';
-  };
-
   const handleClearFilter = (filterType) => {
     // Remove filter from applied filters
     setAppliedFilters(appliedFilters.filter(filter => filter.type !== filterType));
@@ -215,16 +306,75 @@ const HomeScreen = ({ navigation }) => {
     });
   };
 
+  const handleVerifyPress = () => {
+    setShowVerificationModal(false);
+    navigation.navigate('EmailVerification');
+  };
+
+  // Reset the modal flag when the modal is closed without verifying
+  const handleModalClose = () => {
+    setShowVerificationModal(false);
+  };
+
+  // Render item list with loading state
+  const renderItemSection = (title, items, icon, onArrowPress) => {
+    return (
+      <View style={styles.sectionContainer}>
+        <SectionHeader 
+          icon={icon}
+          title={title}
+          showArrow={true}
+          onArrowPress={onArrowPress}
+        />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <Text>Loading...</Text>
+          </View>
+        ) : items.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text>No items available</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={items}
+            renderItem={({ item }) => (
+              <ItemCard 
+                item={item} 
+                onPress={() => navigation.navigate('ItemDetails', { itemId: item.id })}
+              />
+            )}
+            keyExtractor={item => item.id.toString()}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalList}
+          />
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F7F5EC" />
+      
+      {/* Verification Modal - only shown to unverified users */}
+      <VerificationModal 
+        visible={showVerificationModal}
+        onClose={handleModalClose}
+        onVerify={handleVerifyPress}
+      />
       
       {/* Home App Bar */}
       <HomeAppBar 
         location={formatLocation()}
         onLocationPress={() => console.log('Location pressed')}
         onSearchPress={() => navigation.navigate('Search')}
-        onNotificationsPress={() => navigation.navigate('Notifications')}
+        onNotificationsPress={() => {
+          // Reset unread count when user navigates to notifications
+          setUnreadNotificationCount(0);
+          navigation.navigate('Notifications');
+        }}
+        unreadNotificationCount={unreadNotificationCount}
       />
 
       {/* Filter Chips - placed right under the HomeAppBar */}
@@ -234,14 +384,30 @@ const HomeScreen = ({ navigation }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filterChipsContent}
         >
-          {filterOptions.map((filter) => (
-            <FilterChip
-              key={filter.id}
-              title={filter.title}
-              icon={filter.icon}
-              onPress={() => handleFilterPress(filter.id)}
-            />
-          ))}
+          <FilterChip
+            key="category"
+            title="Category"
+            icon="grid-outline"
+            onPress={() => handleFilterPress('category')}
+          />
+          <FilterChip
+            key="condition"
+            title="Condition"
+            icon="heart-half"
+            onPress={() => handleFilterPress('condition')}
+          />
+          <FilterChip
+            key="distance"
+            title="Distance"
+            icon="location-outline"
+            onPress={() => handleFilterPress('distance')}
+          />
+          <FilterChip
+            key="free"
+            title="Free"
+            icon="pricetag-outline"
+            onPress={() => handleFilterPress('free')}
+          />
         </ScrollView>
       </View>
 
@@ -273,97 +439,36 @@ const HomeScreen = ({ navigation }) => {
 
       <ScrollView style={styles.contentContainer}>
         {/* Featured Items Section */}
-        <View style={styles.sectionContainer}>
-          <SectionHeader 
-            icon={<Ionicons name="star" size={20} color="#FFD700" />}
-            title="Featured items for you"
-            showArrow={true}
-            onArrowPress={() => navigation.navigate('SearchResults')}
-          />
-          <FlatList
-            data={featuredItems}
-            renderItem={({ item }) => (
-              <ItemCard 
-                item={item} 
-                onPress={() => navigation.navigate('ItemDetails', { itemId: item.id })}
-              />
-            )}
-            keyExtractor={item => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          />
-        </View>
+        {renderItemSection(
+          "Featured items for you",
+          featuredItems,
+          <Ionicons name="star" size={20} color="#FFD700" />,
+          () => navigation.navigate('SearchResults')
+        )}
 
         {/* Recommended Items Section */}
-        <View style={styles.sectionContainer}>
-          <SectionHeader 
-            icon={<Ionicons name="crown" size={20} color="#000" />}
-            title="Recommended for you"
-            subtitle="Based on your saved items and preferences"
-            showArrow={true}
-            onArrowPress={() => navigation.navigate('SearchResults')}
-          />
-          <FlatList
-            data={recommendedItems}
-            renderItem={({ item }) => (
-              <ItemCard 
-                item={item} 
-                onPress={() => navigation.navigate('ItemDetails', { itemId: item.id })}
-              />
-            )}
-            keyExtractor={item => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          />
-        </View>
+        {renderItemSection(
+          "Recommended for you",
+          recommendedItems,
+          <Ionicons name="crown" size={20} color="#000" />,
+          () => navigation.navigate('SearchResults')
+        )}
 
         {/* Trending Items Section */}
-        <View style={styles.sectionContainer}>
-          <SectionHeader 
-            icon={<Ionicons name="flame" size={20} color="#FF4500" />}
-            title="Trending Now"
-            subtitle="Popular Items in your area"
-            showArrow={true}
-            onArrowPress={() => navigation.navigate('SearchResults')}
-          />
-          <FlatList
-            data={trendingItems}
-            renderItem={({ item }) => (
-              <ItemCard 
-                item={item} 
-                onPress={() => navigation.navigate('ItemDetails', { itemId: item.id })}
-              />
-            )}
-            keyExtractor={item => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          />
-        </View>
+        {renderItemSection(
+          "Trending Now",
+          trendingItems,
+          <Ionicons name="flame" size={20} color="#FF4500" />,
+          () => navigation.navigate('SearchResults')
+        )}
 
         {/* Explore Items Section */}
-        <View style={styles.sectionContainer}>
-          <SectionHeader 
-            icon={<Ionicons name="cart" size={20} color="#000" />}
-            title="Explore More"
-            onArrowPress={() => navigation.navigate('SearchResults')}
-          />
-          <FlatList
-            data={exploreItems}
-            renderItem={({ item }) => (
-              <ItemCard 
-                item={item} 
-                onPress={() => navigation.navigate('ItemDetails', { itemId: item.id })}
-              />
-            )}
-            keyExtractor={item => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          />
-        </View>
+        {renderItemSection(
+          "Explore More",
+          exploreItems,
+          <Ionicons name="cart" size={20} color="#000" />,
+          () => navigation.navigate('SearchResults')
+        )}
       </ScrollView>
 
       {/* View Switcher - Floating button at bottom right */}
@@ -422,6 +527,16 @@ const styles = StyleSheet.create({
   },
   horizontalList: {
     paddingHorizontal: 16,
+  },
+  loadingContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    alignItems: 'center',
   },
   floatingViewSwitcher: {
     position: 'absolute',

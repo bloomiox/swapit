@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+// Import API service
+import { signUp } from '../utils/api';
+// Import Auth context
+import { useAuth } from '../contexts/AuthContext';
 
 const SignUpScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -7,8 +11,9 @@ const SignUpScreen = ({ navigation }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [hidePassword, setHidePassword] = useState(true);
   const [hideConfirmPassword, setHideConfirmPassword] = useState(true);
+  const { login } = useAuth();
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     // Simple validation
     if (!email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
@@ -20,8 +25,19 @@ const SignUpScreen = ({ navigation }) => {
       return;
     }
     
-    // Navigate to onboarding (in a real app, you would create the account first)
-    navigation.replace('OnboardingProfile');
+    try {
+      // Call the signUp API function
+      const { user, session } = await signUp(email, password);
+      
+      // Update auth context
+      login(user);
+      
+      // Navigate to onboarding after successful sign up
+      navigation.replace('OnboardingProfile');
+    } catch (error) {
+      console.error('Sign up error:', error);
+      Alert.alert('Error', error.message || 'Failed to create account. Please try again.');
+    }
   };
 
   const togglePasswordVisibility = () => {
@@ -47,7 +63,7 @@ const SignUpScreen = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
-                placeholder="ex: johndoe@gmail.com"
+                placeholder="Enter your email"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -62,7 +78,7 @@ const SignUpScreen = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
-                placeholder="••••••••"
+                placeholder="Create a password"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={hidePassword}
@@ -79,7 +95,7 @@ const SignUpScreen = ({ navigation }) => {
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.input}
-                placeholder="••••••••"
+                placeholder="Confirm your password"
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={hideConfirmPassword}

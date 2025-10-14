@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View } from 'react-native';
+import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Import screens
 import HomeScreen from './screens/HomeScreen';
@@ -29,13 +30,54 @@ import SettingsScreen from './screens/SettingsScreen';
 import SplashScreen from './screens/SplashScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
+import EmailVerificationScreen from './screens/EmailVerificationScreen';
 import OnboardingProfileScreen from './screens/OnboardingProfileScreen';
 import OnboardingCategoriesScreen from './screens/OnboardingCategoriesScreen';
 import OnboardingOverviewScreen from './screens/OnboardingOverviewScreen';
 import HelpScreen from './screens/HelpScreen';
+import EditItemScreen from './screens/EditItemScreen';
+import BoostItemScreen from './screens/BoostItemScreen';
+import MyListingsScreen from './screens/MyListingsScreen';
+import FavoritesScreen from './screens/FavoritesScreen';
+import TransactionHistoryScreen from './screens/TransactionHistoryScreen';
+import PaymentScreen from './screens/PaymentScreen';
+import PrivacySettingsScreen from './screens/PrivacySettingsScreen';
+import NotificationSettingsScreen from './screens/NotificationSettingsScreen';
+import ImageCropperScreen from './screens/ImageCropperScreen';
+import LocationPickerScreen from './screens/LocationPickerScreen';
+import CategorySelectorScreen from './screens/CategorySelectorScreen';
+import ReportItemScreen from './screens/ReportItemScreen';
+import BlockUserScreen from './screens/BlockUserScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+// Onboarding stack navigator for users who haven't completed onboarding
+function OnboardingStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} />
+      <Stack.Screen name="OnboardingCategories" component={OnboardingCategoriesScreen} />
+      <Stack.Screen name="OnboardingOverview" component={OnboardingOverviewScreen} />
+    </Stack.Navigator>
+  );
+}
+
+// Auth stack navigator for unauthenticated users
+function AuthStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Splash" component={SplashScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="SignUp" component={SignUpScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} />
+      <Stack.Screen name="OnboardingCategories" component={OnboardingCategoriesScreen} />
+      <Stack.Screen name="OnboardingOverview" component={OnboardingOverviewScreen} />
+    </Stack.Navigator>
+  );
+}
 
 // Main tab navigator
 function MainTabs() {
@@ -158,14 +200,26 @@ function MainTabs() {
 
 // Main stack navigator
 function MainStack() {
+  const { user, isLoading, hasCompletedOnboarding } = useAuth();
+
+  // Show splash screen while checking auth state
+  if (isLoading) {
+    return <SplashScreen />;
+  }
+
+  // If user is not logged in, show auth stack
+  if (!user) {
+    return <AuthStack />;
+  }
+
+  // If user is logged in but hasn't completed onboarding, show onboarding stack
+  if (!hasCompletedOnboarding()) {
+    return <OnboardingStack />;
+  }
+
+  // If user is logged in and has completed onboarding, show main app
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Splash" component={SplashScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="SignUp" component={SignUpScreen} />
-      <Stack.Screen name="OnboardingProfile" component={OnboardingProfileScreen} />
-      <Stack.Screen name="OnboardingCategories" component={OnboardingCategoriesScreen} />
-      <Stack.Screen name="OnboardingOverview" component={OnboardingOverviewScreen} />
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="ItemDetails" component={ItemDetailsScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
@@ -182,16 +236,32 @@ function MainStack() {
       <Stack.Screen name="EditProfile" component={EditProfileScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Help" component={HelpScreen} />
+      <Stack.Screen name="EditItem" component={EditItemScreen} />
+      <Stack.Screen name="BoostItem" component={BoostItemScreen} />
+      <Stack.Screen name="MyListings" component={MyListingsScreen} />
+      <Stack.Screen name="Favorites" component={FavoritesScreen} />
+      <Stack.Screen name="TransactionHistory" component={TransactionHistoryScreen} />
+      <Stack.Screen name="Payment" component={PaymentScreen} />
+      <Stack.Screen name="PrivacySettings" component={PrivacySettingsScreen} />
+      <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+      <Stack.Screen name="ImageCropper" component={ImageCropperScreen} />
+      <Stack.Screen name="LocationPicker" component={LocationPickerScreen} />
+      <Stack.Screen name="CategorySelector" component={CategorySelectorScreen} />
+      <Stack.Screen name="ReportItem" component={ReportItemScreen} />
+      <Stack.Screen name="BlockUser" component={BlockUserScreen} />
+      <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
     </Stack.Navigator>
   );
 }
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <NavigationContainer>
-        <MainStack />
-      </NavigationContainer>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <NavigationContainer>
+          <MainStack />
+        </NavigationContainer>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
