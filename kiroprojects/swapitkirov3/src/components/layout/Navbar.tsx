@@ -13,6 +13,11 @@ import { ProfileSubmenu } from '@/components/ui/ProfileSubmenu'
 import { NotificationsPanel } from '@/components/ui/NotificationsPanel'
 import { AddItemModal } from '@/components/modals/AddItemModal'
 import { useAuthModals } from '@/hooks/useAuthModals'
+import { useAuth } from '@/contexts/AuthContext'
+import { useNotifications } from '@/hooks/useNotifications'
+import { useUnreadMessageCount } from '@/hooks/useChat'
+import { useCurrentUserProfile } from '@/hooks/useUserProfile'
+import { NotificationBadge } from '@/components/ui/NotificationBadge'
 import NextLink from 'next/link'
 
 export function Navbar() {
@@ -23,16 +28,52 @@ export function Navbar() {
   const pathname = usePathname()
   const { isLoginOpen, isSignUpOpen, isOnboardingOpen, openLogin, openSignUp, openOnboarding, closeAll } = useAuthModals()
   
-  // Mock authentication state - in a real app, this would come from your auth context/provider
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  // Real authentication state from Supabase
+  const { user, loading, signOut } = useAuth()
+  const isAuthenticated = !!user
   
-  const handleLogout = () => {
-    setIsAuthenticated(false)
-    setIsProfileMenuOpen(false)
-    setIsNotificationsOpen(false)
-    setIsAddItemOpen(false)
-    // Add logout logic here
-    console.log('User logged out')
+  // Real notification and chat data
+  const { unreadCount: notificationUnreadCount } = useNotifications()
+  const { unreadCount: totalUnreadMessages } = useUnreadMessageCount()
+  
+  // Get user profile for avatar
+  const { profile } = useCurrentUserProfile()
+  
+  // Check if user is admin
+  const isAdmin = profile?.is_admin || profile?.role === 'admin' || 
+                  ['admin@swapit.com', 'support@swapit.com', 'gregor.herz@yopmail.com'].includes(user?.email || '')
+  
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      setIsProfileMenuOpen(false)
+      setIsNotificationsOpen(false)
+      setIsAddItemOpen(false)
+      console.log('User logged out successfully')
+      
+      // Redirect to home page after successful logout
+      window.location.href = '/'
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+  }
+
+  // Get user initials for avatar
+  const getUserInitials = () => {
+    if (!user) return 'U'
+    const name = profile?.full_name || user.user_metadata?.full_name || user.email || 'User'
+    return name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  // Get user avatar URL
+  const getUserAvatarUrl = () => {
+    return profile?.avatar_url || null
+  }
+
+  // Get user display name
+  const getUserDisplayName = () => {
+    if (!user) return 'User'
+    return profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
   }
 
   return (
@@ -53,22 +94,12 @@ export function Navbar() {
           SwapIt
         </NextLink>
         
-        {/* Demo Auth Toggle - Remove in production */}
-        <button
-          onClick={() => {
-            setIsAuthenticated(!isAuthenticated)
-            setIsProfileMenuOpen(false)
-            setIsNotificationsOpen(false)
-            setIsAddItemOpen(false)
-          }}
-          className="absolute top-2 right-2 px-2 py-1 text-xs border rounded-lg hover:opacity-80 transition-opacity z-10"
-          style={{ 
-            borderColor: 'var(--border-color)',
-            color: 'var(--text-secondary)'
-          }}
-        >
-          Demo: {isAuthenticated ? 'Auth' : 'Guest'}
-        </button>
+        {/* Loading indicator */}
+        {loading && (
+          <div className="absolute top-2 right-2 px-2 py-1 text-xs border rounded-lg z-10">
+            <div className="animate-spin rounded-full h-3 w-3 border-b border-green-600"></div>
+          </div>
+        )}
 
         {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center gap-6">
@@ -106,11 +137,24 @@ export function Navbar() {
                       Chat
                     </Link>
                   )}
-                  {/* Chat Badge */}
-                  <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                    <span className="text-xs text-white font-medium">3</span>
-                  </div>
+                  {/* Chat Badge - Only show if there are unread messages */}
+                  <NotificationBadge count={totalUnreadMessages} />
                 </div>
+                
+                {/* Admin Link - Only show for admin users */}
+                {isAdmin && (
+                  <div className="relative flex items-center gap-1">
+                    {pathname === '/admin' ? (
+                      <span className="text-primary font-medium">
+                        Admin
+                      </span>
+                    ) : (
+                      <Link href="/admin" variant="default" className="font-medium">
+                        Admin
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Right Side Actions */}
@@ -126,10 +170,11 @@ export function Navbar() {
                     }}
                   >
                     <Bell className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
-                    {/* Notification Badge */}
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-medium">3</span>
-                    </div>
+                    {/* Notification Badge - Only show if there are unread notifications */}
+                    <NotificationBadge 
+                      count={notificationUnreadCount} 
+                      className="absolute -top-1 -right-1"
+                    />
                   </button>
                   
                   <NotificationsPanel
@@ -138,14 +183,22 @@ export function Navbar() {
                   />
                 </div>
 
-                {/* Avatar with Initials */}
+                {/* Avatar with Photo or Initials */}
                 <div className="relative">
                   <button
                     onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-caption-bold text-primary hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: '#D8F7D7' }}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-caption-bold text-primary hover:opacity-80 transition-opacity overflow-hidden"
+                    style={{ backgroundColor: getUserAvatarUrl() ? 'transparent' : '#D8F7D7' }}
                   >
-                    JD
+                    {getUserAvatarUrl() ? (
+                      <img
+                        src={getUserAvatarUrl()!}
+                        alt={getUserDisplayName()}
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    ) : (
+                      getUserInitials()
+                    )}
                   </button>
                   
                   <ProfileSubmenu
@@ -279,26 +332,48 @@ export function Navbar() {
                         Chat
                       </Link>
                     )}
-                    <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-medium">3</span>
-                    </div>
+                    {/* Chat Badge - Only show if there are unread messages */}
+                    <NotificationBadge count={totalUnreadMessages} />
                   </div>
+                  
+                  {/* Admin Link - Only show for admin users */}
+                  {isAdmin && (
+                    <div className="py-2">
+                      {pathname === '/admin' ? (
+                        <span className="text-primary font-medium">
+                          Admin
+                        </span>
+                      ) : (
+                        <Link href="/admin" variant="default" className="font-medium">
+                          Admin
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* User Info */}
                 <div className="flex items-center gap-3 py-3 border-t border-general-stroke dark:border-dark-stroke">
                   <div 
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-caption-bold text-primary"
-                    style={{ backgroundColor: '#D8F7D7' }}
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-caption-bold text-primary overflow-hidden"
+                    style={{ backgroundColor: getUserAvatarUrl() ? 'transparent' : '#D8F7D7' }}
                   >
-                    JD
+                    {getUserAvatarUrl() ? (
+                      <img
+                        src={getUserAvatarUrl()!}
+                        alt={getUserDisplayName()}
+                        className="w-full h-full object-cover rounded-full"
+                      />
+                    ) : (
+                      getUserInitials()
+                    )}
                   </div>
                   <div>
                     <div className="text-body-small-bold" style={{ color: 'var(--text-primary)' }}>
-                      John Doe
+                      {getUserDisplayName()}
                     </div>
                     <div className="text-body-small" style={{ color: 'var(--text-secondary)' }}>
-                      john.doe@example.com
+                      {user?.email}
                     </div>
                   </div>
                 </div>
@@ -396,7 +471,10 @@ export function Navbar() {
       <OnboardingModal
         isOpen={isOnboardingOpen}
         onClose={closeAll}
-        onComplete={closeAll}
+        onComplete={() => {
+          closeAll()
+          window.location.href = '/browse'
+        }}
       />
 
       {/* Add Item Modal */}

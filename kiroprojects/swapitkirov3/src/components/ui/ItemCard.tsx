@@ -1,8 +1,10 @@
-import { MapPin } from 'lucide-react'
+import { MapPin, Eye, Star, User, Calendar, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
+import { Item } from '@/hooks/useItems'
 
 interface ItemCardProps {
-  item: {
+  item: Item | {
     id: string
     title: string
     location: string
@@ -11,49 +13,178 @@ interface ItemCardProps {
   }
 }
 
+const conditionLabels = {
+  like_new: 'Like New',
+  good: 'Good',
+  fair: 'Fair',
+  poor: 'Poor'
+}
+
+const conditionColors = {
+  like_new: 'bg-green-100 text-green-800',
+  good: 'bg-blue-100 text-blue-800',
+  fair: 'bg-yellow-100 text-yellow-800',
+  poor: 'bg-red-100 text-red-800'
+}
+
 export function ItemCard({ item }: ItemCardProps) {
+  // Handle both Item interface and legacy interface
+  const isRealItem = 'images' in item
+  const imageUrl = isRealItem ? item.images?.[0] : item.image
+  const location = isRealItem ? item.location_name || 'Location not set' : item.location
+  const isFree = isRealItem ? item.is_free : item.isFree
+  const isBoosted = isRealItem ? item.is_boosted : false
+  
+  // Get category name directly from the item (no need for separate lookup)
+  const categoryName = isRealItem && item.category ? item.category.name : null
+
+  // Format date with more detailed relative time
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffTime = Math.abs(now.getTime() - date.getTime())
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    
+    if (diffDays === 1) return 'Today'
+    if (diffDays === 2) return 'Yesterday'
+    if (diffDays <= 7) return `${diffDays - 1} days ago`
+    if (diffDays <= 14) return 'Last week'
+    if (diffDays <= 30) return `${Math.ceil(diffDays / 7)} weeks ago`
+    return date.toLocaleDateString()
+  }
+
   return (
     <Link href={`/item/${item.id}`}>
       <div 
-        className="flex flex-col w-full border rounded-2xl overflow-hidden hover:shadow-cards transition-shadow cursor-pointer"
+        className={`flex flex-col w-full border rounded-2xl overflow-hidden hover:shadow-cards transition-all duration-200 cursor-pointer hover:scale-[1.02] ${isBoosted ? 'border-2' : ''}`}
         style={{ 
           backgroundColor: 'var(--bg-card)',
-          borderColor: 'var(--border-color)'
+          borderColor: isBoosted ? '#FFC107' : 'var(--border-color)',
+          minHeight: '400px' // Ensure consistent height for larger cards
         }}
       >
-      {/* Image Container */}
-      <div className="flex flex-col p-1">
-        <div className="relative aspect-[170/220] rounded-xl overflow-hidden">
-          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-            <span className="text-gray-500 text-xs sm:text-sm">Image</span>
+        {/* Image Container - Larger */}
+        <div className="flex flex-col p-2">
+          <div className="relative aspect-[4/3] rounded-xl overflow-hidden">
+            {imageUrl ? (
+              <Image
+                src={imageUrl}
+                alt={item.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              />
+            ) : (
+              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                <span className="text-gray-500 text-sm">No Image</span>
+              </div>
+            )}
+            
+            {/* Swap/Drop Label - Top Right with distinct colors */}
+            <div className="absolute top-3 right-3">
+              <div className={`px-3 py-1.5 rounded-full font-bold text-sm shadow-lg ${
+                isFree 
+                  ? 'bg-green-500 text-white' // Green for Drop
+                  : 'bg-blue-500 text-white'  // Blue for Swap
+              }`}>
+                {isFree ? 'DROP' : 'SWAP'}
+              </div>
+            </div>
+            
+            {/* Boost Badge - Top Left */}
+            {isBoosted && (
+              <div className="absolute top-3 left-3">
+                <div className="bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                  <TrendingUp className="w-4 h-4" />
+                  <span className="text-sm font-bold">BOOSTED</span>
+                </div>
+              </div>
+            )}
+
+            {/* Condition Badge - Bottom Left */}
+            {isRealItem && item.condition && (
+              <div className="absolute bottom-3 left-3">
+                <div className={`px-3 py-1.5 rounded-full text-sm font-medium shadow-lg ${conditionColors[item.condition]}`}>
+                  {conditionLabels[item.condition]}
+                </div>
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Content - More spacious */}
+        <div className="flex flex-col gap-4 p-4 flex-1">
+          {/* Item Name - Larger and more prominent */}
+          <h3 className="text-lg font-bold line-clamp-2 leading-tight" style={{ color: 'var(--text-primary)' }}>
+            {item.title}
+          </h3>
           
-          {/* Free Badge */}
-          {item.isFree && (
-            <div className="absolute top-1 right-1 bg-primary text-general-white px-2 py-1 rounded-full">
-              <span className="text-caption-medium">FREE</span>
+          {/* Location - More prominent */}
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
+            <span className="text-sm font-medium truncate" style={{ color: 'var(--text-secondary)' }}>
+              {location}
+            </span>
+          </div>
+
+          {/* Category - Separate row for better visibility */}
+          {isRealItem && categoryName && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                Category: <span style={{ color: 'var(--text-primary)' }}>{categoryName}</span>
+              </span>
+            </div>
+          )}
+
+          {/* User Profile & Post Date */}
+          {isRealItem && (
+            <div className="flex items-center justify-between gap-3 mt-auto">
+              {/* User Profile */}
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                {item.user?.avatar_url ? (
+                  <Image
+                    src={item.user.avatar_url}
+                    alt={item.user.full_name || 'User'}
+                    width={32}
+                    height={32}
+                    className="rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                    <User className="w-4 h-4 text-gray-600" />
+                  </div>
+                )}
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                    {item.user?.full_name || 'Anonymous'}
+                  </span>
+                  {item.user?.rating_average && item.user.rating_average > 0 && (
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                      <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                        {item.user.rating_average.toFixed(1)} rating
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Post Date */}
+              <div className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                <Calendar className="w-4 h-4" />
+                <span className="font-medium">{formatDate(item.created_at)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* View Count - If available */}
+          {isRealItem && item.view_count > 0 && (
+            <div className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <Eye className="w-4 h-4" />
+              <span>{item.view_count} views</span>
             </div>
           )}
         </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex items-center gap-2 sm:gap-4 p-2 sm:p-3">
-        <div className="flex flex-col gap-1 flex-1 min-w-0">
-          {/* Location */}
-          <div className="flex items-center gap-0.5">
-            <MapPin className="w-3 h-3 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
-            <span className="text-caption truncate" style={{ color: 'var(--text-secondary)' }}>
-              {item.location}
-            </span>
-          </div>
-          
-          {/* Title */}
-          <h3 className="text-body-small-bold line-clamp-2 min-h-[2.5rem] flex items-start" style={{ color: 'var(--text-primary)' }}>
-            {item.title}
-          </h3>
-        </div>
-      </div>
       </div>
     </Link>
   )

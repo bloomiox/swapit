@@ -1,0 +1,6 @@
+export { SettingsSidebar } from './SettingsSidebar'
+export { LanguageSettings } from './LanguageSettings'
+export { ThemeSettings } from './ThemeSettings'
+export { EmailSettings } from './EmailSettings'
+export { PrivacySettings } from './PrivacySettings'
+export { AccountSettings } from './AccountSettings'

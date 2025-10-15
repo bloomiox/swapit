@@ -1,6 +1,8 @@
 'use client'
 
 import * as React from 'react'
+import { useParams } from 'next/navigation'
+import Image from 'next/image'
 
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -14,7 +16,14 @@ import { SwapRequestModal } from '@/components/modals/SwapRequestModal'
 import { SwapRequestSuccessModal } from '@/components/modals/SwapRequestSuccessModal'
 import { EditItemModal } from '@/components/modals/EditItemModal'
 import { BoostItemModal } from '@/components/modals/BoostItemModal'
+import { ImageGalleryModal } from '@/components/modals/ImageGalleryModal'
 import { useAuthModals } from '@/hooks/useAuthModals'
+import { useItem, useItemActions } from '@/hooks/useItems'
+import { useCategories } from '@/hooks/useCategories'
+import { useAuth } from '@/contexts/AuthContext'
+import { useChatActions } from '@/hooks/useChat'
+import { useSwapRequestActions } from '@/hooks/useSwapRequests'
+import { supabase } from '@/lib/supabase'
 import { 
   ArrowLeft, 
   Calendar, 
@@ -22,7 +31,6 @@ import {
   Star, 
   MessageCircle,
   Repeat,
-  Smartphone,
   Smile,
   Edit,
   TrendingUp,
@@ -31,166 +39,258 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
-// Mock data for the item
-const mockItem = {
-  id: '1',
-  title: 'Vintage Stool',
-  description: 'Beautiful vintage film camera in perfect working condition. Great for photography enthusiasts!',
-  condition: 'Like New',
-  category: 'Electronics',
-  isFree: false, // Set to true for free items, false for swap items
-  images: [
-    '/placeholder.jpg',
-    '/placeholder.jpg',
-    '/placeholder.jpg',
-    '/placeholder.jpg'
-  ],
-  badges: [
-    { text: 'For Swap', type: 'info', icon: 'repeat' },
-    { text: 'Electronics', type: 'category', icon: 'smartphone' },
-    { text: 'New Condition', type: 'condition', icon: 'smile' }
-  ],
-  publishedAt: 'Published at 19 Dec 2024 at 12:00 PM',
-  location: 'Berkeley CA · 9.3km away',
-  lookingFor: ['Books', 'Electronics', 'Sports & Fitness', 'Toys & Games'],
-  owner: {
-    name: 'John Doe',
-    avatar: '/placeholder.jpg',
-    rating: 4.5,
-    swapCount: 24
-  }
-}
 
-// Mock current user - in a real app, this would come from your auth context
-const currentUser = {
-  id: 'current-user-id',
-  name: 'John Doe' // Same as item owner for demo purposes
-}
-
-// Mock related items
-const relatedItems = [
-  {
-    id: '2',
-    title: 'iPhone',
-    location: 'Berkeley CA · 9.3km',
-    image: '/placeholder.jpg',
-    isFree: false
-  },
-  {
-    id: '3',
-    title: 'Office Bag',
-    location: 'Berkeley CA · 9.3km',
-    image: '/placeholder.jpg',
-    isFree: true
-  },
-  {
-    id: '4',
-    title: 'Wooden table with stool',
-    location: 'Berkeley CA · 9.3km',
-    image: '/placeholder.jpg',
-    isFree: false
-  },
-  {
-    id: '5',
-    title: 'Original Airpods 2',
-    location: 'Berkeley CA · 9.3km',
-    image: '/placeholder.jpg',
-    isFree: false
-  }
-]
 
 export default function ItemDetailsPage() {
+  const params = useParams()
+  const itemId = params.id as string
+  
   const [selectedImageIndex, setSelectedImageIndex] = React.useState(0)
   const { isLoginOpen, isSignUpOpen, isOnboardingOpen, openLogin, openSignUp, openOnboarding, closeAll } = useAuthModals()
   
-  // Mock authentication state - in a real app, this would come from your auth context/provider
-  const [isAuthenticated, setIsAuthenticated] = React.useState(true) // Set to true to show owner features
+  // Auth and data hooks
+  const { user } = useAuth()
+  const { item, loading, error, refetch } = useItem(itemId)
+  // Related items - only load after main item is loaded
+  const [relatedItems, setRelatedItems] = React.useState<any[]>([])
+  const [relatedItemsLoading, setRelatedItemsLoading] = React.useState(false)
+  
+  React.useEffect(() => {
+    if (item && item.category_id && !loading) {
+      setRelatedItemsLoading(true)
+      // Fetch related items manually to avoid infinite loops
+      supabase
+        .from('items')
+        .select(`
+          *,
+          category:categories(id, name, icon),
+          user:users(id, full_name, avatar_url, rating_average)
+        `)
+        .eq('is_available', true)
+        .eq('category_id', item.category_id)
+        .neq('id', item.id) // Exclude current item
+        .order('created_at', { ascending: false })
+        .limit(4)
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Error fetching related items:', error)
+          } else {
+            setRelatedItems(data || [])
+          }
+          setRelatedItemsLoading(false)
+        })
+    }
+  }, [item, loading])
+  const { saveItem, unsaveItem, checkIfSaved, updateItem } = useItemActions()
+  const { categories } = useCategories()
+  const { createOrGetConversation } = useChatActions()
+  const { createSwapRequest } = useSwapRequestActions()
   
   // Modal states
   const [isSwapRequestOpen, setIsSwapRequestOpen] = React.useState(false)
   const [isSwapSuccessOpen, setIsSwapSuccessOpen] = React.useState(false)
   const [isEditItemOpen, setIsEditItemOpen] = React.useState(false)
   const [isBoostItemOpen, setIsBoostItemOpen] = React.useState(false)
+  const [isImageGalleryOpen, setIsImageGalleryOpen] = React.useState(false)
   const [showOwnerMenu, setShowOwnerMenu] = React.useState(false)
-  
-  // Item state
-  const [itemData, setItemData] = React.useState(mockItem)
   const [isSaved, setIsSaved] = React.useState(false)
+  const [isSaving, setIsSaving] = React.useState(false)
+  const [justSaved, setJustSaved] = React.useState(false)
+  const [startingChat, setStartingChat] = React.useState(false)
   
   // Check if current user is the item owner
-  const isOwner = currentUser.name === itemData.owner.name
+  const isOwner = user && item && user.id === item.user_id
+  const isAuthenticated = !!user
+
+  // Check if item is saved on load
+  React.useEffect(() => {
+    if (item && user && !loading) {
+      checkIfSaved(item.id).then(setIsSaved).catch(console.error)
+    }
+  }, [item, user, loading, checkIfSaved])
+
+  // Loading state
+  if (loading) {
+    return (
+      <main className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <Navbar />
+        <div className="px-4 md:px-6 lg:px-[165px] py-12">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-32 mb-6"></div>
+            <div className="flex gap-6">
+              <div className="w-[354px] h-[400px] bg-gray-200 rounded-2xl"></div>
+              <div className="flex-1 space-y-4">
+                <div className="h-32 bg-gray-200 rounded-2xl"></div>
+                <div className="h-48 bg-gray-200 rounded-2xl"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </main>
+    )
+  }
+
+  // Error state
+  if (error || !item) {
+    return (
+      <main className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <Navbar />
+        <div className="px-4 md:px-6 lg:px-[165px] py-12">
+          <div className="text-center">
+            <h1 className="text-h3 mb-4" style={{ color: 'var(--text-primary)' }}>
+              Item Not Found
+            </h1>
+            <p className="text-body-large mb-6" style={{ color: 'var(--text-secondary)' }}>
+              {error || 'The item you are looking for does not exist or has been removed.'}
+            </p>
+            <Link href="/browse">
+              <Button variant="primary">Browse Items</Button>
+            </Link>
+          </div>
+        </div>
+        <Footer />
+      </main>
+    )
+  }
+
+  // Related items are already filtered and limited in the useEffect
   
   const handleRequestSwap = () => {
     if (!isAuthenticated) {
-      // User is not authenticated, redirect to sign up
       openSignUp()
     } else {
-      if (mockItem.isFree) {
-        // For free items, directly claim the item
+      if (item.is_free) {
         handleClaimItem()
       } else {
-        // For swap items, open swap request modal
         setIsSwapRequestOpen(true)
       }
     }
   }
 
-  const handleClaimItem = () => {
-    // In a real app, this would make an API call to claim the free item
-    console.log('Claiming free item:', mockItem.id)
-    
-    // Show success modal (we can reuse the swap success modal with different text)
-    setIsSwapSuccessOpen(true)
+  const handleClaimItem = async () => {
+    try {
+      console.log('Claiming free item:', item.id)
+      await createSwapRequest({
+        requested_item_id: item.id,
+        is_claim_request: true,
+        message: 'I would like to claim this free item.'
+      })
+      setIsSwapSuccessOpen(true)
+    } catch (error) {
+      console.error('Error claiming item:', error)
+      alert('Failed to claim item. Please try again.')
+    }
   }
 
-  const handleSendSwapRequest = (selectedItems: string[], message: string) => {
-    // In a real app, this would make an API call to send the swap request
-    console.log('Sending swap request:', { selectedItems, message, itemId: mockItem.id })
-    
-    // Close swap request modal and show success modal
+  const handleSwapRequestSuccess = () => {
     setIsSwapRequestOpen(false)
     setIsSwapSuccessOpen(true)
   }
 
   const handleViewRequests = () => {
     setIsSwapSuccessOpen(false)
-    // Navigate to requests page - in a real app, use router.push('/requests')
     window.location.href = '/requests'
   }
 
   const handleContinueBrowsing = () => {
     setIsSwapSuccessOpen(false)
-    // Navigate to browse page - in a real app, use router.push('/browse')
     window.location.href = '/browse'
   }
 
-  const handleSaveItem = (updatedData: {
-    title: string
-    description: string
-    condition: string
-    category: string
-    location: string
-    isFree: boolean
-  }) => {
-    setItemData(prev => ({
-      ...prev,
-      ...updatedData
-    }))
-    console.log('Item updated:', updatedData)
+  const handleSaveItem = async (updatedData: any) => {
+    try {
+      // Find the category ID from the category name
+      const category = categories.find(cat => cat.name === updatedData.category)
+      
+      // Map the form data to the database fields
+      const updates = {
+        title: updatedData.title,
+        description: updatedData.description,
+        condition: updatedData.condition, // Already in correct format (like_new, good, etc.)
+        is_free: updatedData.isFree,
+        location_name: updatedData.location,
+        category_id: category?.id || null
+      }
+      
+      await updateItem(item.id, updates)
+      console.log('Item updated successfully:', updatedData)
+      refetch() // Refresh item data
+    } catch (error) {
+      console.error('Error updating item:', error)
+      // Optionally show an error toast here
+    }
   }
 
-  const handleBoostItem = (boostData: {
-    duration: number
-    paymentMethod: string
-  }) => {
-    console.log('Item boosted:', boostData)
-    // In a real app, this would make an API call to boost the item
+
+
+  const handleToggleSave = async () => {
+    if (!user || !item || isSaving) return
+    
+    // If user is not authenticated, open login modal
+    if (!isAuthenticated) {
+      openLogin()
+      return
+    }
+    
+    setIsSaving(true)
+    
+    try {
+      if (isSaved) {
+        await unsaveItem(item.id)
+        setIsSaved(false)
+      } else {
+        await saveItem(item.id)
+        setIsSaved(true)
+        // Show success animation
+        setJustSaved(true)
+        setTimeout(() => setJustSaved(false), 1000)
+      }
+    } catch (error) {
+      console.error('Error toggling save:', error)
+      // Optionally show an error toast here
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const handleToggleSave = () => {
-    setIsSaved(!isSaved)
-    console.log(isSaved ? 'Item removed from saved' : 'Item saved')
-    // In a real app, this would make an API call to save/unsave the item
+  const handleStartChat = async () => {
+    if (!user || !item?.user?.id || startingChat) return
+
+    // If user is not authenticated, open login modal
+    if (!isAuthenticated) {
+      openLogin()
+      return
+    }
+
+    try {
+      setStartingChat(true)
+      const conversationId = await createOrGetConversation(item.user.id)
+      // Navigate to chat with the conversation ID
+      window.location.href = `/chat?conversation=${conversationId}`
+    } catch (error) {
+      console.error('Error starting chat:', error)
+      alert('Failed to start chat. Please try again.')
+    } finally {
+      setStartingChat(false)
+    }
+  }
+
+  // Format condition for display
+  const formatCondition = (condition: string) => {
+    switch (condition) {
+      case 'like_new': return 'Like New'
+      case 'good': return 'Good'
+      case 'fair': return 'Fair'
+      case 'poor': return 'Poor'
+      default: return condition
+    }
+  }
+
+  // Format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return `Published at ${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`
   }
 
   return (
@@ -271,64 +371,89 @@ export default function ItemDetailsPage() {
           {/* Left Column - Photos */}
           <div className="w-[354px] flex-shrink-0">
             {/* Main Image */}
-            <div 
-              className="w-full h-[400px] rounded-2xl overflow-hidden mb-4"
+            <button
+              onClick={() => item.images && item.images.length > 0 && setIsImageGalleryOpen(true)}
+              className="w-full h-[400px] rounded-2xl overflow-hidden mb-4 relative cursor-pointer hover:opacity-95 transition-opacity"
               style={{ backgroundColor: 'var(--bg-secondary)' }}
+              disabled={!item.images || item.images.length === 0}
             >
-              <img
-                src={mockItem.images[selectedImageIndex]}
-                alt={mockItem.title}
-                className="w-full h-full object-cover"
-                style={{ backgroundColor: '#f0f0f0' }}
-              />
-            </div>
+              {item.images && item.images.length > 0 ? (
+                <Image
+                  src={item.images[selectedImageIndex]}
+                  alt={item.title}
+                  fill
+                  className="object-cover"
+                  sizes="354px"
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <span className="text-gray-500">No Image</span>
+                </div>
+              )}
+            </button>
 
             {/* Thumbnail Gallery */}
-            <div className="flex gap-2">
-              {mockItem.images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedImageIndex(index)}
-                  className={`w-10 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                    selectedImageIndex === index 
-                      ? 'border-primary' 
-                      : 'border-transparent'
-                  }`}
-                  style={{ backgroundColor: 'var(--bg-secondary)' }}
-                >
-                  <img
-                    src={image}
-                    alt={`${mockItem.title} ${index + 1}`}
-                    className="w-full h-full object-cover"
-                    style={{ backgroundColor: '#f0f0f0' }}
-                  />
-                </button>
-              ))}
-            </div>
+            {item.images && item.images.length > 1 && (
+              <div className="flex gap-2">
+                {item.images.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImageIndex(index)}
+                    onDoubleClick={() => {
+                      setSelectedImageIndex(index)
+                      setIsImageGalleryOpen(true)
+                    }}
+                    className={`w-10 h-16 rounded-lg overflow-hidden border-2 transition-colors relative ${
+                      selectedImageIndex === index 
+                        ? 'border-primary' 
+                        : 'border-transparent'
+                    }`}
+                    style={{ backgroundColor: 'var(--bg-secondary)' }}
+                    title="Click to select, double-click to open gallery"
+                  >
+                    <Image
+                      src={image}
+                      alt={`${item.title} ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="40px"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right Column - Content */}
           <div className="flex-1 flex flex-col gap-4">
             {/* Item Information Card */}
             <div 
-              className="p-4 rounded-2xl border relative"
+              className={`p-4 rounded-2xl border relative ${item.is_boosted ? 'border-2' : ''}`}
               style={{ 
                 backgroundColor: 'var(--bg-card)',
-                borderColor: 'var(--border-color)'
+                borderColor: item.is_boosted ? '#FFC107' : 'var(--border-color)'
               }}
             >
               {/* Save/Favorite Button */}
               {!isOwner && (
                 <button
                   onClick={handleToggleSave}
-                  className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100"
+                  disabled={isSaving}
+                  className={`absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 ${
+                    isSaving 
+                      ? 'cursor-not-allowed opacity-70' 
+                      : 'hover:bg-gray-100 hover:scale-105'
+                  }`}
                   style={{ backgroundColor: 'var(--bg-primary)' }}
+                  title={isSaved ? 'Remove from saved items' : 'Save item'}
                 >
                   <Heart 
-                    className={`w-5 h-5 transition-colors ${
+                    className={`w-5 h-5 transition-all duration-200 ${
                       isSaved 
                         ? 'fill-red-500 text-red-500' 
                         : 'text-gray-400 hover:text-red-500'
+                    } ${isSaving ? 'animate-pulse' : ''} ${
+                      justSaved ? 'animate-bounce scale-125' : ''
                     }`}
                     strokeWidth={1.5}
                   />
@@ -339,23 +464,37 @@ export default function ItemDetailsPage() {
                 <div 
                   className="flex items-center gap-1 px-2 py-1 rounded-full text-caption-medium"
                   style={{ 
-                    backgroundColor: mockItem.isFree ? '#D8F7D7' : '#E9F1FD',
-                    color: mockItem.isFree ? '#416B40' : 'var(--text-primary)'
+                    backgroundColor: item.is_free ? '#D8F7D7' : '#E9F1FD',
+                    color: item.is_free ? '#416B40' : 'var(--text-primary)'
                   }}
                 >
                   <Repeat className="w-3 h-3" />
-                  {mockItem.isFree ? 'Drop it' : 'For Swap'}
+                  {item.is_free ? 'Free' : 'For Swap'}
                 </div>
-                <div 
-                  className="flex items-center gap-1 px-2 py-1 rounded-full text-caption-medium"
-                  style={{ 
-                    backgroundColor: '#F9F9F9',
-                    color: 'var(--text-primary)'
-                  }}
-                >
-                  <Smartphone className="w-3 h-3" />
-                  Electronics
-                </div>
+                {item.is_boosted && (
+                  <div 
+                    className="flex items-center gap-1 px-2 py-1 rounded-full text-caption-medium"
+                    style={{ 
+                      backgroundColor: '#FFF3CD',
+                      color: '#856404'
+                    }}
+                  >
+                    <TrendingUp className="w-3 h-3" />
+                    Boosted
+                  </div>
+                )}
+                {item.category && (
+                  <div 
+                    className="flex items-center gap-1 px-2 py-1 rounded-full text-caption-medium"
+                    style={{ 
+                      backgroundColor: '#F9F9F9',
+                      color: 'var(--text-primary)'
+                    }}
+                  >
+                    <span className="text-xs">{item.category.icon || '📦'}</span>
+                    {item.category.name}
+                  </div>
+                )}
                 <div 
                   className="flex items-center gap-1 px-2 py-1 rounded-full text-caption-medium"
                   style={{ 
@@ -364,7 +503,7 @@ export default function ItemDetailsPage() {
                   }}
                 >
                   <Smile className="w-3 h-3" />
-                  New Condition
+                  {formatCondition(item.condition)}
                 </div>
               </div>
 
@@ -374,13 +513,13 @@ export default function ItemDetailsPage() {
                   className="text-h5 mb-1"
                   style={{ color: 'var(--text-primary)' }}
                 >
-                  {itemData.title}
+                  {item.title}
                 </h1>
                 <p 
                   className="text-body-small-regular"
                   style={{ color: 'var(--text-secondary)' }}
                 >
-                  {itemData.description}
+                  {item.description}
                 </p>
               </div>
 
@@ -392,7 +531,7 @@ export default function ItemDetailsPage() {
                     className="text-body-small-regular"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    {mockItem.publishedAt}
+                    {formatDate(item.created_at)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -401,14 +540,14 @@ export default function ItemDetailsPage() {
                     className="text-body-small-regular"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    {mockItem.location}
+                    {item.location_name || 'Location not set'}
                   </span>
                 </div>
               </div>
 
               {/* Looking For Section / Action Button */}
               <div className="flex items-center gap-6 mt-4 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                {!itemData.isFree && (
+                {!item.is_free && (
                   <div className="flex-1">
                     <h3 
                       className="text-body-small-bold mb-2"
@@ -417,22 +556,19 @@ export default function ItemDetailsPage() {
                       Looking for
                     </h3>
                     <div className="flex flex-wrap gap-1">
-                      {itemData.lookingFor.map((item, index) => (
-                        <div
-                          key={index}
-                          className="px-2 py-1 rounded-full text-caption-medium"
-                          style={{ 
-                            backgroundColor: '#F9F9F9',
-                            color: 'var(--text-primary)'
-                          }}
-                        >
-                          {item}
-                        </div>
-                      ))}
+                      <div
+                        className="px-2 py-1 rounded-full text-caption-medium"
+                        style={{ 
+                          backgroundColor: '#F9F9F9',
+                          color: 'var(--text-primary)'
+                        }}
+                      >
+                        Open to offers
+                      </div>
                     </div>
                   </div>
                 )}
-                {itemData.isFree && (
+                {item.is_free && (
                   <div className="flex-1">
                     <p 
                       className="text-body-small-regular"
@@ -444,7 +580,7 @@ export default function ItemDetailsPage() {
                 )}
                 {!isOwner && (
                   <Button variant="primary" size="default" onClick={handleRequestSwap}>
-                    {itemData.isFree ? 'Claim Item' : 'Request Swap'}
+                    {item.is_free ? 'Claim Item' : 'Request Swap'}
                   </Button>
                 )}
                 {isOwner && (
@@ -474,90 +610,144 @@ export default function ItemDetailsPage() {
 
             {/* Map Section */}
             <div 
-              className="h-[220px] rounded-2xl overflow-hidden relative"
-              style={{ backgroundColor: 'var(--bg-secondary)' }}
+              className="rounded-2xl overflow-hidden relative border"
+              style={{ 
+                backgroundColor: 'var(--bg-secondary)',
+                borderColor: 'var(--border-color)',
+                height: '280px'
+              }}
             >
-              <OpenStreetMap
-                latitude={37.8715}
-                longitude={-122.2730}
-                zoom={14}
-                className="rounded-2xl"
-                markers={[
-                  {
-                    lat: 37.8715,
-                    lng: -122.2730,
-                    title: mockItem.title,
-                    color: '#FD5F59'
-                  }
-                ]}
-                showUserLocation={true}
-              />
+              <div className="absolute top-4 left-4 z-10">
+                <div 
+                  className="px-3 py-2 rounded-lg backdrop-blur-sm border"
+                  style={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    borderColor: 'var(--border-color)'
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                    <span 
+                      className="text-body-small-bold"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      Item Location
+                    </span>
+                  </div>
+                  <p 
+                    className="text-caption-regular mt-1"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {item.location_name || 'Location not set'}
+                  </p>
+                </div>
+              </div>
+              
+              {item.location_coordinates ? (
+                <OpenStreetMap
+                  latitude={item.location_coordinates.lat}
+                  longitude={item.location_coordinates.lng}
+                  zoom={15}
+                  className="w-full h-full"
+                  markers={[
+                    {
+                      lat: item.location_coordinates.lat,
+                      lng: item.location_coordinates.lng,
+                      title: item.title,
+                      id: item.id,
+                      imageUrl: item.images?.[0],
+                      isFree: item.is_free
+                    }
+                  ]}
+                  showUserLocation={true}
+                />
+              ) : (
+                <div className="w-full h-full bg-gray-200 flex flex-col items-center justify-center">
+                  <MapPin className="w-12 h-12 text-gray-400 mb-2" />
+                  <span className="text-gray-500 text-center">
+                    Location not available<br />
+                    <span className="text-sm">Contact owner for pickup details</span>
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Owner Profile Card */}
-            <Link href={`/user/${mockItem.owner.name.toLowerCase().replace(' ', '-')}`}>
-              <div 
-                className="flex items-center gap-3 p-3 rounded-2xl border hover:shadow-cards transition-shadow cursor-pointer"
-                style={{ 
-                  backgroundColor: 'var(--bg-card)',
-                  borderColor: 'var(--border-color)'
-                }}
-              >
-                {/* Avatar */}
+            {item.user && (
+              <Link href={`/user/${item.user.id}`}>
                 <div 
-                  className="w-10 h-10 rounded-full overflow-hidden"
-                  style={{ backgroundColor: 'var(--bg-secondary)' }}
+                  className="flex items-center gap-3 p-3 rounded-2xl border hover:shadow-cards transition-shadow cursor-pointer"
+                  style={{ 
+                    backgroundColor: 'var(--bg-card)',
+                    borderColor: 'var(--border-color)'
+                  }}
                 >
-                  <img
-                    src={mockItem.owner.avatar}
-                    alt={mockItem.owner.name}
-                    className="w-full h-full object-cover"
-                    style={{ backgroundColor: '#f0f0f0' }}
-                  />
-                </div>
-
-                {/* Owner Info */}
-                <div className="flex-1">
-                  <h4 
-                    className="text-body-normal-bold"
-                    style={{ color: 'var(--text-primary)' }}
+                  {/* Avatar */}
+                  <div 
+                    className="w-10 h-10 rounded-full overflow-hidden relative"
+                    style={{ backgroundColor: 'var(--bg-secondary)' }}
                   >
-                    {mockItem.owner.name}
-                  </h4>
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3 h-3 fill-current" style={{ color: '#E1B517' }} />
-                    <span 
-                      className="text-caption-regular"
+                    {item.user.avatar_url ? (
+                      <Image
+                        src={item.user.avatar_url}
+                        alt={item.user.full_name || 'User'}
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-300 flex items-center justify-center">
+                        <span className="text-gray-600 text-sm">
+                          {(item.user.full_name || 'U')[0].toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Owner Info */}
+                  <div className="flex-1">
+                    <h4 
+                      className="text-body-normal-bold"
                       style={{ color: 'var(--text-primary)' }}
                     >
-                      {mockItem.owner.rating}
-                    </span>
-                    <span 
-                      className="text-caption-regular"
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
-                      ({mockItem.owner.swapCount} swaps)
-                    </span>
+                      {item.user.full_name || 'Anonymous User'}
+                    </h4>
+                    <div className="flex items-center gap-1">
+                      <Star className="w-3 h-3 fill-current" style={{ color: '#E1B517' }} />
+                      <span 
+                        className="text-caption-regular"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        {item.user.rating_average || 0}
+                      </span>
+                      <span 
+                        className="text-caption-regular"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        (New user)
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* Chat Button */}
-                <Link href="/chat">
-                  <button 
-                    className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
-                    style={{ backgroundColor: 'var(--bg-primary)' }}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      // Navigate to chat page
-                      window.location.href = '/chat'
-                    }}
-                  >
-                    <MessageCircle className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
-                  </button>
-                </Link>
-              </div>
-            </Link>
+                  {/* Chat Button */}
+                  {!isOwner && (
+                    <button 
+                      className="w-8 h-8 rounded-full flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-50"
+                      style={{ backgroundColor: 'var(--bg-primary)' }}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleStartChat()
+                      }}
+                      disabled={startingChat}
+                      title={startingChat ? 'Starting chat...' : 'Message owner'}
+                    >
+                      <MessageCircle className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
+                    </button>
+                  )}
+                </div>
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -586,10 +776,22 @@ export default function ItemDetailsPage() {
         </div>
 
         {/* Related Items Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-          {relatedItems.map((item) => (
-            <ItemCard key={item.id} item={item} />
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {relatedItemsLoading ? (
+            Array(3).fill(0).map((_, i) => (
+              <div key={i} className="aspect-[4/5] bg-gray-200 rounded-2xl animate-pulse" />
+            ))
+          ) : relatedItems.length > 0 ? (
+            relatedItems.map((relatedItem) => (
+              <ItemCard key={relatedItem.id} item={relatedItem} />
+            ))
+          ) : (
+            <div className="col-span-full text-center py-8">
+              <p className="text-body-large" style={{ color: 'var(--text-secondary)' }}>
+                No related items found.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -610,22 +812,27 @@ export default function ItemDetailsPage() {
       <OnboardingModal
         isOpen={isOnboardingOpen}
         onClose={closeAll}
-        onComplete={closeAll}
+        onComplete={() => {
+          closeAll()
+          window.location.href = '/browse'
+        }}
       />
 
       {/* Swap Request Modals */}
       <SwapRequestModal
         isOpen={isSwapRequestOpen}
         onClose={() => setIsSwapRequestOpen(false)}
-        onSendRequest={handleSendSwapRequest}
+        requestedItemId={item.id}
+        isClaimRequest={item.is_free}
+        onSuccess={handleSwapRequestSuccess}
       />
       <SwapRequestSuccessModal
         isOpen={isSwapSuccessOpen}
         onClose={() => setIsSwapSuccessOpen(false)}
         onViewRequests={handleViewRequests}
         onContinueBrowsing={handleContinueBrowsing}
-        itemTitle={itemData.title}
-        isFreeItem={itemData.isFree}
+        itemTitle={item.title}
+        isFreeItem={item.is_free}
       />
 
       {/* Owner Modals */}
@@ -635,25 +842,34 @@ export default function ItemDetailsPage() {
             isOpen={isEditItemOpen}
             onClose={() => setIsEditItemOpen(false)}
             currentItem={{
-              id: itemData.id,
-              title: itemData.title,
-              description: itemData.description,
-              condition: itemData.condition,
-              category: itemData.category,
-              location: itemData.location,
-              isFree: itemData.isFree,
-              image: itemData.images[0]
+              id: item.id,
+              title: item.title,
+              description: item.description,
+              condition: item.condition,
+              category: item.category?.name || 'Uncategorized',
+              location: item.location_name || '',
+              isFree: item.is_free,
+              image: item.images?.[0] || ''
             }}
             onSaveItem={handleSaveItem}
           />
           <BoostItemModal
             isOpen={isBoostItemOpen}
             onClose={() => setIsBoostItemOpen(false)}
-            itemTitle={itemData.title}
+            itemTitle={item.title}
             onSuccess={() => console.log('Item boosted successfully!')}
           />
         </>
       )}
+
+      {/* Image Gallery Modal */}
+      <ImageGalleryModal
+        isOpen={isImageGalleryOpen}
+        onClose={() => setIsImageGalleryOpen(false)}
+        images={item.images || []}
+        initialIndex={selectedImageIndex}
+        itemTitle={item.title}
+      />
     </main>
   )
 }

@@ -4,6 +4,8 @@ import React, { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Eye, EyeOff } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 interface SignUpModalProps {
   isOpen: boolean
@@ -15,26 +17,178 @@ interface SignUpModalProps {
 export function SignUpModal({ isOpen, onClose, onSwitchToLogin, onSignUpSuccess }: SignUpModalProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false)
+  const [signupEmail, setSignupEmail] = useState('')
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     confirmPassword: ''
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { signUp, signInWithProvider } = useAuth()
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle signup logic here
+    setLoading(true)
+    setError(null)
+
+    // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match')
+      setError('Passwords do not match')
+      setLoading(false)
       return
     }
-    console.log('Sign up:', formData)
-    // Trigger onboarding flow after successful signup
-    onSignUpSuccess()
+
+    // Validate password strength
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const { data, error } = await signUp(formData.email, formData.password)
+      
+      if (error) {
+        setError(error.message)
+      } else if (data.user) {
+        // For email signup, show confirmation message
+        console.log('Sign up successful:', data.user.email)
+        setSignupEmail(formData.email)
+        setShowEmailConfirmation(true)
+        setFormData({ email: '', password: '', confirmPassword: '' })
+      }
+    } catch (err) {
+      setError('An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSocialSignUp = async (provider: 'google' | 'apple') => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { error } = await signInWithProvider(provider)
+      
+      if (error) {
+        setError(error.message)
+      }
+      // Note: For OAuth, the user will be redirected, so we don't close the modal here
+    } catch (err) {
+      setError('An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleResendEmail = async () => {
+    setLoading(true)
+    setError(null)
+    
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: signupEmail
+      })
+      
+      if (error) {
+        setError(error.message)
+      } else {
+        // Show success message briefly
+        setError(null)
+        setTimeout(() => {
+          setError('Confirmation email sent successfully!')
+        }, 100)
+      }
+    } catch (err) {
+      setError('Failed to resend confirmation email')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleBackToSignup = () => {
+    setShowEmailConfirmation(false)
+    setSignupEmail('')
+    setError(null)
+  }
+
+  // Email confirmation view
+  if (showEmailConfirmation) {
+    return (
+      <Modal isOpen={isOpen} onClose={onClose}>
+        <div className="p-6 text-center">
+          <div className="w-16 h-16 mx-auto mb-6 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          
+          <h2 className="text-h4 mb-4" style={{ color: 'var(--text-primary)' }}>
+            Check Your Email
+          </h2>
+          
+          <p className="text-body-large mb-4" style={{ color: 'var(--text-secondary)' }}>
+            We've sent a confirmation link to your email address. Please click the link to verify your account.
+          </p>
+          
+          <div className="bg-blue-50 p-4 rounded-lg mb-6">
+            <p className="text-sm text-blue-700 mb-1">Confirmation email sent to:</p>
+            <p className="text-sm font-semibold text-blue-800">{signupEmail}</p>
+          </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <Button 
+              variant="primary" 
+              size="large"
+              onClick={onClose}
+              className="w-full"
+            >
+              Got it, I'll check my email
+            </Button>
+            
+            <Button 
+              variant="secondary" 
+              size="large"
+              onClick={handleResendEmail}
+              disabled={loading}
+              className="w-full"
+            >
+              {loading ? 'Sending...' : 'Resend confirmation email'}
+            </Button>
+            
+            <Button 
+              variant="outlined" 
+              size="large"
+              onClick={handleBackToSignup}
+              className="w-full"
+            >
+              Back to sign up
+            </Button>
+          </div>
+
+          <div className="mt-6 pt-6 border-t" style={{ borderColor: 'var(--border-color)' }}>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              Didn't receive the email? Check your spam folder or try resending.
+            </p>
+          </div>
+        </div>
+      </Modal>
+    )
   }
 
   return (
@@ -55,6 +209,13 @@ export function SignUpModal({ isOpen, onClose, onSwitchToLogin, onSignUpSuccess 
             Create your account to start swapping
           </p>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4 mb-6">
@@ -178,8 +339,14 @@ export function SignUpModal({ isOpen, onClose, onSwitchToLogin, onSignUpSuccess 
           </div>
 
           {/* Sign Up Button */}
-          <Button variant="primary" size="large" type="submit" className="w-full">
-            Create Account
+          <Button 
+            variant="primary" 
+            size="large" 
+            type="submit" 
+            className="w-full"
+            disabled={loading}
+          >
+            {loading ? 'Creating Account...' : 'Create Account'}
           </Button>
         </form>
 
@@ -207,7 +374,8 @@ export function SignUpModal({ isOpen, onClose, onSwitchToLogin, onSignUpSuccess 
             variant="outlined" 
             size="large" 
             className="w-full flex items-center justify-center gap-3"
-            onClick={() => console.log('Google signup')}
+            onClick={() => handleSocialSignUp('google')}
+            disabled={loading}
           >
             <div className="w-5 h-5 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -224,7 +392,8 @@ export function SignUpModal({ isOpen, onClose, onSwitchToLogin, onSignUpSuccess 
             variant="outlined" 
             size="large" 
             className="w-full flex items-center justify-center gap-3"
-            onClick={() => console.log('Apple signup')}
+            onClick={() => handleSocialSignUp('apple')}
+            disabled={loading}
           >
             <div className="w-5 h-5 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { AuthProvider } from '@/contexts/AuthContext'
+import { OnboardingProvider } from '@/contexts/OnboardingContext'
+import { ToastProvider } from '@/components/ui/Toast'
 
 export const metadata: Metadata = {
   title: 'SwapIt - Swap. Share. Sustain.',
@@ -16,9 +19,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased">
-        <ThemeProvider>
-          {children}
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <OnboardingProvider>
+              <ToastProvider>
+                {children}
+              </ToastProvider>
+            </OnboardingProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   )

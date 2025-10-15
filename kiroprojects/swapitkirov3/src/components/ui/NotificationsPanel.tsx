@@ -1,68 +1,15 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { X, RotateCcw, Gift, MessageCircle, Info } from 'lucide-react'
+import { X, RotateCcw, Gift, MessageCircle, Info, Check } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-
-interface Notification {
-  id: string
-  message: string
-  timestamp: string
-  isNew: boolean
-  type: 'swap_request' | 'claim_request' | 'message' | 'system'
-}
+import { useNotifications, useNotificationActions, getNotificationColor } from '@/hooks/useNotifications'
 
 interface NotificationsPanelProps {
   isOpen: boolean
   onClose: () => void
   className?: string
 }
-
-// Mock notifications data
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    message: 'Sarah Miller has requested a swap for your Vintage Stool',
-    timestamp: '19 Dec 2024 at 12:00 PM',
-    isNew: true,
-    type: 'swap_request'
-  },
-  {
-    id: '2',
-    message: 'Joshua has claimed your Free Office Chair',
-    timestamp: '19 Dec 2024 at 11:00 PM',
-    isNew: true,
-    type: 'claim_request'
-  },
-  {
-    id: '3',
-    message: 'Henry Wong has requested a swap for your Vintage Stool',
-    timestamp: '19 Dec 2024 at 9:00 PM',
-    isNew: false,
-    type: 'swap_request'
-  },
-  {
-    id: '4',
-    message: 'Ali has requested a swap for your iPhone',
-    timestamp: '19 Dec 2024 at 8:40 PM',
-    isNew: false,
-    type: 'swap_request'
-  },
-  {
-    id: '5',
-    message: 'Jane has claimed your Free Desk Lamp',
-    timestamp: '19 Dec 2024 at 7:11 PM',
-    isNew: false,
-    type: 'claim_request'
-  },
-  {
-    id: '6',
-    message: 'Jane has requested a swap for your iPhone',
-    timestamp: '19 Dec 2024 at 12:00 PM',
-    isNew: false,
-    type: 'swap_request'
-  }
-]
 
 export function NotificationsPanel({ 
   isOpen, 
@@ -71,6 +18,13 @@ export function NotificationsPanel({
 }: NotificationsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
+  
+  // Data hooks
+  const { notifications, unreadCount, loading } = useNotifications()
+  const { markAsRead, markAllAsRead } = useNotificationActions()
+
+  // Show only recent notifications in panel (last 6)
+  const recentNotifications = notifications.slice(0, 6)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -90,52 +44,87 @@ export function NotificationsPanel({
 
   if (!isOpen) return null
 
-  const getNotificationIcon = (type: Notification['type']) => {
+  const getNotificationIcon = (type: any) => {
     switch (type) {
       case 'swap_request':
-        return <RotateCcw className="w-5 h-5" style={{ color: '#119C21' }} />
-      case 'claim_request':
-        return <Gift className="w-5 h-5" style={{ color: '#FD5F59' }} />
+        return <RotateCcw className="w-5 h-5" style={{ color: getNotificationColor(type) }} />
+      case 'swap_accepted':
+        return <Check className="w-5 h-5" style={{ color: getNotificationColor(type) }} />
+      case 'swap_declined':
+        return <RotateCcw className="w-5 h-5" style={{ color: getNotificationColor(type) }} />
+      case 'swap_completed':
+        return <Gift className="w-5 h-5" style={{ color: getNotificationColor(type) }} />
       case 'message':
-        return <MessageCircle className="w-5 h-5" style={{ color: '#2196F3' }} />
+        return <MessageCircle className="w-5 h-5" style={{ color: getNotificationColor(type) }} />
+      case 'review':
+        return <Info className="w-5 h-5" style={{ color: getNotificationColor(type) }} />
+      case 'item_liked':
+        return <Gift className="w-5 h-5" style={{ color: getNotificationColor(type) }} />
       case 'system':
-        return <Info className="w-5 h-5" style={{ color: '#FF9800' }} />
+        return <Info className="w-5 h-5" style={{ color: getNotificationColor(type) }} />
       default:
         return <Info className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
     }
   }
 
-  const handleNotificationClick = (notification: Notification) => {
-    console.log('Notification clicked:', notification)
-    
-    // Mark notification as read (in a real app, this would be an API call)
-    if (notification.isNew) {
-      console.log('Marking notification as read:', notification.id)
-      // In a real app: markNotificationAsRead(notification.id)
+  const handleNotificationClick = async (notification: any) => {
+    try {
+      // Mark notification as read if it's unread
+      if (!notification.is_read) {
+        await markAsRead(notification.id)
+      }
+      
+      // Close the panel first
+      onClose()
+      
+      // Navigate based on notification type
+      switch (notification.type) {
+        case 'swap_request':
+        case 'swap_accepted':
+        case 'swap_declined':
+        case 'swap_completed':
+          router.push('/requests')
+          break
+        case 'message':
+          router.push('/chat')
+          break
+        case 'review':
+        case 'item_liked':
+          router.push('/profile')
+          break
+        case 'system':
+          router.push('/notifications')
+          break
+        default:
+          router.push('/notifications')
+          break
+      }
+    } catch (error) {
+      console.error('Error handling notification click:', error)
     }
-    
-    // Close the panel first
-    onClose()
-    
-    // Navigate based on notification type
-    switch (notification.type) {
-      case 'swap_request':
-      case 'claim_request':
-        // Both swap requests and claim requests go to the requests page
-        router.push('/requests')
-        break
-      case 'message':
-        // Message notifications go to chat
-        router.push('/chat')
-        break
-      case 'system':
-        // System notifications might go to a specific page or stay on notifications
-        router.push('/notifications')
-        break
-      default:
-        // Default to notifications page
-        router.push('/notifications')
-        break
+  }
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllAsRead()
+    } catch (error) {
+      console.error('Error marking all as read:', error)
+    }
+  }
+
+  const formatTimestamp = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+
+    if (diffInHours < 1) {
+      const diffInMinutes = Math.floor(diffInHours * 60)
+      return `${diffInMinutes}m ago`
+    } else if (diffInHours < 24) {
+      const hours = Math.floor(diffInHours)
+      return `${hours}h ago`
+    } else {
+      return date.toLocaleDateString()
     }
   }
 
@@ -165,16 +154,13 @@ export function NotificationsPanel({
               >
                 Notifications
               </h2>
-              {mockNotifications.some(n => n.isNew) && (
+              {unreadCount > 0 && (
                 <button
-                  onClick={() => {
-                    console.log('Mark all as read')
-                    // In a real app: markAllNotificationsAsRead()
-                  }}
+                  onClick={handleMarkAllAsRead}
                   className="text-body-small hover:opacity-70 transition-opacity mt-1"
                   style={{ color: 'var(--text-secondary)' }}
                 >
-                  Mark all as read
+                  Mark all as read ({unreadCount})
                 </button>
               )}
             </div>
@@ -191,57 +177,82 @@ export function NotificationsPanel({
           </div>
 
           {/* Notifications List */}
-          <div className="space-y-2">
-            {mockNotifications.map((notification) => (
-              <div
-                key={notification.id}
-                onClick={() => handleNotificationClick(notification)}
-                className="flex items-center gap-4 p-3 rounded-2xl border cursor-pointer hover:shadow-sm transition-all duration-200"
-                style={{
-                  backgroundColor: 'var(--bg-primary)',
-                  borderColor: 'var(--border-color)'
-                }}
-              >
-                {/* Icon */}
-                <div className="flex-shrink-0">
-                  {getNotificationIcon(notification.type)}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1">
-                  <p 
-                    className="text-body-normal font-medium mb-1"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    {notification.message}
-                  </p>
-                  <p 
-                    className="text-body-small"
-                    style={{ color: 'var(--text-secondary)' }}
-                  >
-                    {notification.timestamp}
-                  </p>
-                </div>
-
-                {/* New Badge */}
-                {notification.isNew && (
-                  <div 
-                    className="px-2 py-1 rounded-full"
-                    style={{ backgroundColor: '#FD5F59' }}
-                  >
-                    <span 
-                      className="text-caption-medium text-white"
-                    >
-                      New
-                    </span>
+          {loading ? (
+            <div className="space-y-2">
+              {Array(3).fill(0).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 p-3 rounded-2xl border animate-pulse" style={{ backgroundColor: 'var(--bg-card)' }}>
+                  <div className="w-5 h-5 bg-gray-200 rounded"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                </div>
+              ))}
+            </div>
+          ) : recentNotifications.length > 0 ? (
+            <div className="space-y-2">
+              {recentNotifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`flex items-center gap-4 p-3 rounded-2xl border cursor-pointer hover:shadow-sm transition-all duration-200 ${
+                    !notification.is_read ? 'bg-blue-50' : ''
+                  }`}
+                  style={{
+                    backgroundColor: !notification.is_read ? '#F0F9FF' : 'var(--bg-card)',
+                    borderColor: !notification.is_read ? '#3B82F6' : 'var(--border-color)'
+                  }}
+                >
+                  {/* Icon */}
+                  <div className="flex-shrink-0">
+                    {getNotificationIcon(notification.type)}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <p 
+                      className="text-body-small font-medium mb-1 truncate"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {notification.title}
+                    </p>
+                    <p 
+                      className="text-caption truncate mb-1"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {notification.message}
+                    </p>
+                    <p 
+                      className="text-caption"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      {formatTimestamp(notification.created_at)}
+                    </p>
+                  </div>
+
+                  {/* New Badge */}
+                  {!notification.is_read && (
+                    <div 
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ backgroundColor: '#3B82F6' }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p 
+                className="text-body-normal"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                No notifications yet
+              </p>
+            </div>
+          )}
 
           {/* View All Link */}
-          {mockNotifications.length > 0 && (
+          {recentNotifications.length > 0 && (
             <div 
               className="mt-4 pt-4 border-t text-center"
               style={{ borderColor: 'var(--border-color)' }}
@@ -254,20 +265,8 @@ export function NotificationsPanel({
                 className="text-body-small font-medium hover:opacity-70 transition-opacity"
                 style={{ color: '#119C21' }}
               >
-                View all notifications
+                View all notifications ({notifications.length})
               </button>
-            </div>
-          )}
-
-          {/* Empty State (if no notifications) */}
-          {mockNotifications.length === 0 && (
-            <div className="text-center py-8">
-              <p 
-                className="text-body-normal"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                No notifications yet
-              </p>
             </div>
           )}
         </div>

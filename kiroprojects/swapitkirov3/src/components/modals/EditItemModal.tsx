@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { X, Upload, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { useCategories } from '@/hooks/useCategories'
 
 interface EditItemModalProps {
   isOpen: boolean
@@ -27,23 +28,19 @@ interface EditItemModalProps {
   }) => void
 }
 
-const categories = [
-  'Electronics',
-  'Furniture',
-  'Clothing',
-  'Books',
-  'Sports',
-  'Home & Garden',
-  'Toys',
-  'Other'
+const conditions = [
+  'like_new',
+  'good',
+  'fair',
+  'poor'
 ]
 
-const conditions = [
-  'Like New',
-  'Good',
-  'Fair',
-  'Poor'
-]
+const conditionLabels = {
+  'like_new': 'Like New',
+  'good': 'Good',
+  'fair': 'Fair',
+  'poor': 'Poor'
+}
 
 export function EditItemModal({ 
   isOpen, 
@@ -51,6 +48,7 @@ export function EditItemModal({
   currentItem, 
   onSaveItem 
 }: EditItemModalProps) {
+  const { categories, loading: categoriesLoading } = useCategories()
   const [formData, setFormData] = useState({
     title: currentItem.title,
     description: currentItem.description,
@@ -199,12 +197,17 @@ export function EditItemModal({
                   color: 'var(--text-primary)'
                 }}
                 required
+                disabled={categoriesLoading}
               >
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
+                {categoriesLoading ? (
+                  <option>Loading categories...</option>
+                ) : (
+                  categories.map((category) => (
+                    <option key={category.id} value={category.name}>
+                      {category.name}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -228,7 +231,7 @@ export function EditItemModal({
               >
                 {conditions.map((condition) => (
                   <option key={condition} value={condition}>
-                    {condition}
+                    {conditionLabels[condition as keyof typeof conditionLabels]}
                   </option>
                 ))}
               </select>

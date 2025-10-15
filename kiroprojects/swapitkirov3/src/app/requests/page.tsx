@@ -6,182 +6,143 @@ import {
 } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { Button } from '@/components/ui/Button'
 import { SwapRequestCard } from '@/components/ui/SwapRequestCard'
 import { SentSwapRequestCard } from '@/components/ui/SentSwapRequestCard'
-
-interface SwapRequest {
-  id: string
-  user: {
-    name: string
-    avatar: string
-    timestamp: string
-  }
-  wantedItem: {
-    title: string
-    image: string
-  }
-  offeredItem: {
-    title: string
-    image: string
-  }
-  message: string
-  status: 'pending' | 'accepted' | 'rejected'
-}
-
-// Mock data for received requests
-const mockReceivedRequests: SwapRequest[] = [
-  {
-    id: '1',
-    user: {
-      name: 'Sarah Miller',
-      avatar: '/api/placeholder/40/40',
-      timestamp: '19 Dec 2024 at 12:00 PM'
-    },
-    wantedItem: {
-      title: 'Vintage Stool',
-      image: '/api/placeholder/92/92'
-    },
-    offeredItem: {
-      title: 'Leather bag with original strap and long 3 pockets',
-      image: '/api/placeholder/92/92'
-    },
-    message: 'Hi! I love your vintage stool. Would you be interested in swapping for my leather bag?',
-    status: 'pending'
-  },
-  {
-    id: '2',
-    user: {
-      name: 'John Smith',
-      avatar: '/api/placeholder/40/40',
-      timestamp: '18 Dec 2024 at 3:30 PM'
-    },
-    wantedItem: {
-      title: 'iPhone 13',
-      image: '/api/placeholder/92/92'
-    },
-    offeredItem: {
-      title: 'Samsung Galaxy S21',
-      image: '/api/placeholder/92/92'
-    },
-    message: 'Would you like to swap your iPhone for my Samsung? It\'s in excellent condition!',
-    status: 'pending'
-  },
-  {
-    id: '3',
-    user: {
-      name: 'Emma Wilson',
-      avatar: '/api/placeholder/40/40',
-      timestamp: '17 Dec 2024 at 10:15 AM'
-    },
-    wantedItem: {
-      title: 'Office Chair',
-      image: '/api/placeholder/92/92'
-    },
-    offeredItem: {
-      title: 'Standing Desk',
-      image: '/api/placeholder/92/92'
-    },
-    message: 'I have a great standing desk that would be perfect for your office setup. Interested in a swap?',
-    status: 'pending'
-  }
-]
-
-// Mock data for sent requests
-const mockSentRequests: SwapRequest[] = [
-  {
-    id: '4',
-    user: {
-      name: 'Sarah Miller',
-      avatar: '/api/placeholder/40/40',
-      timestamp: '19 Dec 2024 at 12:00 PM'
-    },
-    wantedItem: {
-      title: 'Vintage Stool',
-      image: '/api/placeholder/92/92'
-    },
-    offeredItem: {
-      title: 'Leather bag with original strap and long 3 pockets',
-      image: '/api/placeholder/92/92'
-    },
-    message: 'Hi! I love your vintage stool. Would you be interested in swapping for my leather bag?',
-    status: 'pending'
-  },
-  {
-    id: '5',
-    user: {
-      name: 'Mike Johnson',
-      avatar: '/api/placeholder/40/40',
-      timestamp: '18 Dec 2024 at 2:15 PM'
-    },
-    wantedItem: {
-      title: 'Gaming Headset',
-      image: '/api/placeholder/92/92'
-    },
-    offeredItem: {
-      title: 'Wireless Keyboard',
-      image: '/api/placeholder/92/92'
-    },
-    message: 'Hey! I saw your gaming headset and would love to trade my wireless keyboard for it. Let me know!',
-    status: 'pending'
-  },
-  {
-    id: '6',
-    user: {
-      name: 'Lisa Chen',
-      avatar: '/api/placeholder/40/40',
-      timestamp: '17 Dec 2024 at 4:45 PM'
-    },
-    wantedItem: {
-      title: 'Coffee Maker',
-      image: '/api/placeholder/92/92'
-    },
-    offeredItem: {
-      title: 'Blender',
-      image: '/api/placeholder/92/92'
-    },
-    message: 'Would you be interested in swapping your coffee maker for my high-speed blender?',
-    status: 'pending'
-  }
-]
+import { DropzoneRequestCard } from '@/components/ui/DropzoneRequestCard'
+import { 
+  useReceivedSwapRequests, 
+  useSentSwapRequests, 
+  useDropzoneRequests,
+  useSwapRequestActions 
+} from '@/hooks/useSwapRequests'
+import { usePendingReviews, useReviewActions } from '@/hooks/useReviews'
+import { ReviewModal } from '@/components/modals/ReviewModal'
 
 type TabType = 'received' | 'sent' | 'dropzone'
 
 export default function RequestsPage() {
-  const [activeTab, setActiveTab] = useState<TabType>('sent')
+  const [activeTab, setActiveTab] = useState<TabType>('received')
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const [selectedSwapForReview, setSelectedSwapForReview] = useState<any>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const handleAccept = (requestId: string) => {
-    console.log('Accept request:', requestId)
-    // Handle accept logic
+  // Data hooks
+  const { requests: receivedRequests, loading: receivedLoading, refetch: refetchReceived } = useReceivedSwapRequests()
+  const { requests: sentRequests, loading: sentLoading, refetch: refetchSent } = useSentSwapRequests()
+  const { requests: dropzoneRequests, loading: dropzoneLoading, refetch: refetchDropzone } = useDropzoneRequests()
+  const { pendingReviews, refetch: refetchPendingReviews } = usePendingReviews()
+  
+  // Actions hooks
+  const { acceptSwapRequest, rejectSwapRequest } = useSwapRequestActions()
+  const { createReview } = useReviewActions()
+
+  const handleAccept = async (requestId: string) => {
+    try {
+      await acceptSwapRequest(requestId)
+      refetchReceived()
+      refetchPendingReviews()
+      
+      // Show review modal after accepting
+      const acceptedRequest = receivedRequests.find(req => req.id === requestId)
+      if (acceptedRequest) {
+        setSelectedSwapForReview({
+          id: acceptedRequest.id,
+          reviewee_id: acceptedRequest.requester_id,
+          reviewee: acceptedRequest.requester,
+          requested_item: acceptedRequest.requested_item,
+          offered_item: acceptedRequest.offered_item
+        })
+        setReviewModalOpen(true)
+      }
+    } catch (error) {
+      console.error('Error accepting request:', error)
+    }
   }
 
-  const handleReject = (requestId: string) => {
-    console.log('Reject request:', requestId)
-    // Handle reject logic
+  const handleReject = async (requestId: string) => {
+    try {
+      await rejectSwapRequest(requestId)
+      refetchReceived()
+    } catch (error) {
+      console.error('Error rejecting request:', error)
+    }
   }
 
   const handleMessage = (requestId: string) => {
     console.log('Message user:', requestId)
-    // Handle message logic
+    // TODO: Implement messaging functionality
   }
 
-  const getTabContent = () => {
-    switch (activeTab) {
-      case 'received':
-        return mockReceivedRequests
-      case 'sent':
-        return mockSentRequests
-      case 'dropzone':
-        return [] // Mock dropzone requests
-      default:
-        return mockReceivedRequests
+  const handleReview = (requestId: string) => {
+    const request = receivedRequests.find(req => req.id === requestId)
+    if (request) {
+      setSelectedSwapForReview({
+        id: request.id,
+        reviewee_id: request.requester_id,
+        reviewee: request.requester,
+        requested_item: request.requested_item,
+        offered_item: request.offered_item
+      })
+      setReviewModalOpen(true)
     }
   }
 
-  const currentRequests = getTabContent()
+  const handleSubmitReview = async (reviewData: any) => {
+    try {
+      // Create the review first
+      await createReview(reviewData)
+      
+      // Close modal immediately for better UX
+      setReviewModalOpen(false)
+      setSelectedSwapForReview(null)
+      
+      // Show success feedback
+      console.log('Review submitted successfully!')
+      
+      // Refresh data in the background
+      // Use setTimeout to ensure the review is fully committed before refetching
+      setTimeout(async () => {
+        try {
+          await Promise.all([
+            refetchPendingReviews(),
+            refetchReceived(),
+            refetchSent(),
+            refetchDropzone()
+          ])
+          // Force re-render of components
+          setRefreshKey(prev => prev + 1)
+        } catch (refetchError) {
+          console.error('Error refreshing data after review submission:', refetchError)
+        }
+      }, 1000) // Increased delay to ensure database consistency
+      
+    } catch (error) {
+      console.error('Error submitting review:', error)
+      alert('Failed to submit review. Please try again.')
+    }
+  }
+
+  const getCurrentData = () => {
+    switch (activeTab) {
+      case 'received':
+        return { requests: receivedRequests, loading: receivedLoading }
+      case 'sent':
+        return { requests: sentRequests, loading: sentLoading }
+      case 'dropzone':
+        return { requests: dropzoneRequests, loading: dropzoneLoading }
+      default:
+        return { requests: receivedRequests, loading: receivedLoading }
+    }
+  }
+
+  const { requests: currentRequests, loading: currentLoading } = getCurrentData()
 
   return (
-    <main className="min-h-screen px-2.5">
-      <Navbar />
+    <ProtectedRoute>
+      <main className="min-h-screen px-2.5">
+        <Navbar />
       <div 
         className="min-h-screen"
         style={{ backgroundColor: 'var(--bg-primary)' }}
@@ -228,7 +189,7 @@ export default function RequestsPage() {
                 }}
               >
                 <span className="text-xs font-medium text-white">
-                  {mockReceivedRequests.length}
+                  {receivedRequests.length}
                 </span>
               </div>
             </button>
@@ -259,7 +220,7 @@ export default function RequestsPage() {
                 }}
               >
                 <span className="text-xs font-medium text-white">
-                  {mockSentRequests.length}
+                  {sentRequests.length}
                 </span>
               </div>
             </button>
@@ -290,7 +251,7 @@ export default function RequestsPage() {
                 }}
               >
                 <span className="text-xs font-medium text-white">
-                  0
+                  {dropzoneRequests.length}
                 </span>
               </div>
             </button>
@@ -298,24 +259,57 @@ export default function RequestsPage() {
 
           {/* Content */}
           <div className="space-y-2">
-            {currentRequests.length > 0 ? (
-              currentRequests.map((request) => (
-                activeTab === 'sent' ? (
-                  <SentSwapRequestCard
-                    key={request.id}
-                    request={request}
-                    onMessage={handleMessage}
-                  />
-                ) : (
-                  <SwapRequestCard
-                    key={request.id}
-                    request={request}
-                    onAccept={handleAccept}
-                    onReject={handleReject}
-                    onMessage={handleMessage}
-                  />
-                )
-              ))
+            {currentLoading ? (
+              <div className="space-y-2">
+                {Array(3).fill(0).map((_, i) => (
+                  <div key={i} className="p-4 rounded-2xl border animate-pulse" style={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                      <div className="space-y-1">
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                        <div className="h-3 bg-gray-200 rounded w-32"></div>
+                      </div>
+                    </div>
+                    <div className="h-32 bg-gray-200 rounded-2xl mb-4"></div>
+                    <div className="h-16 bg-gray-200 rounded-2xl mb-4"></div>
+                    <div className="flex gap-2">
+                      <div className="h-10 bg-gray-200 rounded flex-1"></div>
+                      <div className="h-10 bg-gray-200 rounded flex-1"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : currentRequests.length > 0 ? (
+              currentRequests.map((request) => {
+                if (activeTab === 'sent') {
+                  return (
+                    <SentSwapRequestCard
+                      key={request.id}
+                      request={request}
+                      onMessage={handleMessage}
+                    />
+                  )
+                } else if (activeTab === 'dropzone') {
+                  return (
+                    <DropzoneRequestCard
+                      key={request.id}
+                      request={request}
+                      onMessage={handleMessage}
+                    />
+                  )
+                } else {
+                  return (
+                    <SwapRequestCard
+                      key={`${request.id}-${refreshKey}`}
+                      request={request}
+                      onAccept={handleAccept}
+                      onReject={handleReject}
+                      onMessage={handleMessage}
+                      onReview={handleReview}
+                    />
+                  )
+                }
+              })
             ) : (
               <div className="text-center py-16">
                 <div className="mb-4">
@@ -344,8 +338,92 @@ export default function RequestsPage() {
             )}
           </div>
         </div>
+
+        {/* Pending Reviews Section */}
+        {pendingReviews.length > 0 && (
+          <div className="mt-8">
+            <h2 
+              className="text-h5 font-bold mb-4"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              Pending Reviews
+            </h2>
+            <div className="space-y-2">
+              {pendingReviews.map((swap) => (
+                <div
+                  key={swap.id}
+                  className="p-4 rounded-2xl border"
+                  style={{
+                    backgroundColor: 'var(--bg-primary)',
+                    borderColor: 'var(--border-color)'
+                  }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {swap.reviewee.avatar_url ? (
+                        <img
+                          src={swap.reviewee.avatar_url}
+                          alt={swap.reviewee.full_name || 'User'}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div 
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+                          style={{ 
+                            backgroundColor: '#D8F7D7',
+                            color: '#119C21'
+                          }}
+                        >
+                          {(swap.reviewee.full_name || 'U')[0].toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <h3 
+                          className="text-body-normal font-medium"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          Review {swap.reviewee.full_name || 'Anonymous User'}
+                        </h3>
+                        <p 
+                          className="text-body-small"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          Swap completed - Please leave a review
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="default"
+                      onClick={() => {
+                        setSelectedSwapForReview(swap)
+                        setReviewModalOpen(true)
+                      }}
+                    >
+                      Leave Review
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <Footer />
-    </main>
+
+      {/* Review Modal */}
+      {selectedSwapForReview && (
+        <ReviewModal
+          isOpen={reviewModalOpen}
+          onClose={() => {
+            setReviewModalOpen(false)
+            setSelectedSwapForReview(null)
+          }}
+          swapRequest={selectedSwapForReview}
+          onSubmitReview={handleSubmitReview}
+        />
+      )}
+      </main>
+    </ProtectedRoute>
   )
 }

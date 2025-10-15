@@ -22,7 +22,7 @@ export function WhyChooseSwapIt() {
   return (
     <section 
       className="flex flex-col items-center gap-6 lg:gap-10 px-4 md:px-6 lg:px-[165px] py-section-mobile md:py-section-tablet lg:py-10"
-      style={{ backgroundColor: 'var(--bg-primary)' }}
+      style={{ backgroundColor: '#F7F5EC' }}
     >
       {/* Section Header */}
       <div className="flex flex-col gap-1 text-center max-w-2xl">

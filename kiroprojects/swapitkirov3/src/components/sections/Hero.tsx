@@ -92,7 +92,10 @@ export function Hero() {
         <OnboardingModal
           isOpen={isOnboardingOpen}
           onClose={closeAll}
-          onComplete={closeAll}
+          onComplete={() => {
+            closeAll()
+            window.location.href = '/browse'
+          }}
         />
       </div>
     </section>

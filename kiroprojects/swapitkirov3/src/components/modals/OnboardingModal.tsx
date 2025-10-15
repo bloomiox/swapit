@@ -1,9 +1,14 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
-import { MapPin, User, Heart, ArrowRight, ArrowLeft, Locate } from 'lucide-react'
+import { AvatarUpload } from '@/components/ui/AvatarUpload'
+import { MapPin, User, Heart, ArrowRight, ArrowLeft, Locate, Camera } from 'lucide-react'
+import { useProfileActions } from '@/hooks/useUserProfile'
+import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 
 interface OnboardingModalProps {
   isOpen: boolean
@@ -17,33 +22,28 @@ interface ProfileData {
   bio: string
   location: string
   interests: string[]
+  avatarUrl: string | null
 }
 
-const categories = [
-  'Electronics',
-  'Furniture',
-  'Clothing',
-  'Books',
-  'Sports & Outdoors',
-  'Home & Garden',
-  'Toys & Games',
-  'Art & Crafts',
-  'Music & Instruments',
-  'Kitchen & Dining',
-  'Beauty & Health',
-  'Automotive'
-]
-
 export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModalProps) {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [profileData, setProfileData] = useState<ProfileData>({
     firstName: '',
     lastName: '',
     bio: '',
     location: '',
-    interests: []
+    interests: [],
+    avatarUrl: null
   })
   const [isDetectingLocation, setIsDetectingLocation] = useState(false)
+  const [showAvatarUpload, setShowAvatarUpload] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [categories, setCategories] = useState<string[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(true)
+  
+  const { uploadAvatar } = useProfileActions()
+  const { user } = useAuth()
 
   const handleInputChange = (field: keyof ProfileData, value: string | string[]) => {
     setProfileData(prev => ({ ...prev, [field]: value }))
@@ -70,17 +70,160 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
     }
   }
 
-  const handleSkip = () => {
-    onComplete()
-    onClose()
+  const handleSkipStep = () => {
+    // Skip current step and move to next
+    if (currentStep < 3) {
+      setCurrentStep(currentStep + 1)
+    } else {
+      // If on last step, complete onboarding
+      handleComplete()
+    }
   }
 
-  const handleComplete = () => {
-    // Handle profile completion logic here
-    console.log('Profile completed:', profileData)
+  const handleSkipAll = async () => {
+    try {
+      // Mark onboarding as completed when skipping all
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_id: user?.id,
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        })
+      
+      if (error) {
+        console.error('Error marking onboarding as skipped:', error)
+        console.error('Skip error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        })
+      }
+    } catch (error) {
+      console.error('Error in handleSkipAll:', error)
+    }
+    
     onComplete()
-    onClose()
+    
+    // Redirect to browse page after skipping onboarding
+    router.push('/browse')
   }
+
+  const handleAvatarUpload = async (file: File) => {
+    try {
+      setUploadingAvatar(true)
+      const avatarUrl = await uploadAvatar(file)
+      setProfileData(prev => ({ ...prev, avatarUrl }))
+      setShowAvatarUpload(false)
+    } catch (error) {
+      console.error('Avatar upload failed:', error)
+      // Could show an error toast here
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  const handleComplete = async () => {
+    try {
+      // Handle profile completion logic here
+      console.log('Profile completed:', profileData)
+      
+      // Save profile data to users table
+      const profileUpdateData = {
+        full_name: `${profileData.firstName} ${profileData.lastName}`.trim(),
+        bio: profileData.bio || null,
+        location_name: profileData.location || null,
+        avatar_url: profileData.avatarUrl
+      }
+      
+      console.log('Saving profile data:', profileUpdateData)
+      
+      const { data: profileResult, error: profileError } = await supabase
+        .from('users')
+        .update(profileUpdateData)
+        .eq('id', user?.id)
+        .select()
+      
+      if (profileError) {
+        console.error('Error saving profile:', profileError)
+      } else {
+        console.log('Profile saved successfully:', profileResult)
+      }
+      
+      // Get category IDs for selected interests
+      const { data: categories, error: categoriesError } = await supabase
+        .from('categories')
+        .select('id, name')
+        
+      const matchingCategories = categories?.filter(cat => 
+        profileData.interests.includes(cat.name)
+      ) || []
+      
+      if (categoriesError) {
+        console.error('Error fetching categories:', categoriesError)
+      }
+      
+      const categoryIds = matchingCategories.map(cat => cat.id)
+      
+      // Save preferences and mark onboarding as completed
+      const preferencesData = {
+        user_id: user?.id,
+        categories_of_interest: categoryIds,
+        onboarding_completed: true,
+        onboarding_completed_at: new Date().toISOString()
+      }
+      
+      console.log('Saving preferences data:', preferencesData)
+      
+      const { data: preferencesResult, error: preferencesError } = await supabase
+        .from('user_preferences')
+        .upsert(preferencesData, {
+          onConflict: 'user_id'
+        })
+        .select()
+      
+      if (preferencesError) {
+        console.error('Error saving preferences:', preferencesError)
+        console.error('Preferences error details:', {
+          code: preferencesError.code,
+          message: preferencesError.message,
+          details: preferencesError.details,
+          hint: preferencesError.hint
+        })
+      } else {
+        console.log('Preferences saved successfully:', preferencesResult)
+      }
+      
+      // Small delay to ensure database operations complete
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Dispatch profile update event to trigger refresh in profile components
+      const { dispatchProfileUpdate } = await import('@/lib/events')
+      dispatchProfileUpdate()
+      
+      onComplete()
+      
+      // Redirect to browse page after onboarding completion
+      router.push('/browse')
+    } catch (error) {
+      console.error('Error completing onboarding:', error)
+      // Still complete onboarding even if there's an error
+      onComplete()
+      
+      // Redirect to browse page even if there's an error
+      router.push('/browse')
+    }
+  }
+
+  // Load categories when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadCategories()
+    }
+  }, [isOpen])
 
   // Auto-detect location when modal opens
   useEffect(() => {
@@ -88,6 +231,48 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
       detectLocation()
     }
   }, [isOpen, currentStep])
+
+  const loadCategories = async () => {
+    try {
+      setLoadingCategories(true)
+      console.log('Loading categories...')
+      
+      const { data, error } = await supabase
+        .from('categories')
+        .select('name')
+        .eq('is_active', true)
+        .order('name')
+
+      if (error) {
+        console.error('Supabase error loading categories:', error)
+        throw error
+      }
+
+      console.log('Categories data from database:', data)
+      const categoryNames = data.map(cat => cat.name).filter(Boolean)
+      console.log('Processed category names:', categoryNames)
+      setCategories(categoryNames)
+    } catch (error) {
+      console.error('Error loading categories:', error)
+      // Fallback to default categories
+      const fallbackCategories = [
+        'Electronics',
+        'Clothing & Fashion', 
+        'Books & Media',
+        'Home & Furniture',
+        'Sports & Fitness',
+        'Toys & Games',
+        'Automotive',
+        'Health & Beauty',
+        'Art & Crafts',
+        'Computer & Gaming'
+      ]
+      console.log('Using fallback categories:', fallbackCategories)
+      setCategories(fallbackCategories)
+    } finally {
+      setLoadingCategories(false)
+    }
+  }
 
   const detectLocation = async () => {
     setIsDetectingLocation(true)
@@ -143,10 +328,10 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
   }
 
   const isStep1Valid = profileData.firstName.trim() && profileData.lastName.trim()
-  const isStep2Valid = profileData.interests.length > 0
+  const isStep2Valid = true // Step 2 is always valid, interests are optional
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose}>
+    <Modal isOpen={isOpen} onClose={() => {}} disableClose={true}>
       <div className="p-6">
         {/* Progress Stepper */}
         <div className="mb-8">
@@ -204,6 +389,60 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
             </div>
 
             <div className="space-y-4">
+              {/* Profile Photo */}
+              <div className="space-y-2">
+                <label 
+                  className="block text-body-small-bold text-center"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Profile Photo (Optional)
+                </label>
+                <div className="flex justify-center">
+                  <div className="relative">
+                    <div 
+                      className="w-24 h-24 rounded-full overflow-hidden border-4 cursor-pointer hover:opacity-80 transition-opacity"
+                      style={{ borderColor: 'var(--border-color)' }}
+                      onClick={() => setShowAvatarUpload(true)}
+                    >
+                      {profileData.avatarUrl ? (
+                        <img
+                          src={profileData.avatarUrl}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div 
+                          className="w-full h-full flex items-center justify-center"
+                          style={{ 
+                            backgroundColor: '#D8F7D7',
+                            color: '#119C21'
+                          }}
+                        >
+                          <Camera className="w-8 h-8" />
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowAvatarUpload(true)}
+                      className="absolute -bottom-1 -right-1 w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white hover:opacity-80 transition-opacity"
+                      disabled={uploadingAvatar}
+                    >
+                      {uploadingAvatar ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        <Camera className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <p 
+                  className="text-caption text-center"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Click to add a profile photo
+                </p>
+              </div>
+
               {/* Name Fields */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -337,8 +576,23 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              {categories.map((category) => (
+            {loadingCategories ? (
+              <div className="grid grid-cols-2 gap-3">
+                {Array(8).fill(0).map((_, i) => (
+                  <div key={i} className="p-4 border rounded-2xl animate-pulse">
+                    <div className="h-4 bg-gray-200 rounded"></div>
+                  </div>
+                ))}
+              </div>
+            ) : categories.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-body-medium" style={{ color: 'var(--text-secondary)' }}>
+                  No categories available. Please try again later.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {categories.map((category) => (
                 <button
                   key={category}
                   onClick={() => handleInterestToggle(category)}
@@ -370,7 +624,8 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                   </span>
                 </button>
               ))}
-            </div>
+              </div>
+            )}
 
             {profileData.interests.length > 0 && (
               <div className="mt-4 text-center">
@@ -484,39 +739,70 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
           </div>
 
           <div className="flex items-center gap-3">
-            <Button 
-              variant="secondary" 
-              size="default" 
-              onClick={handleSkip}
-            >
-              Skip
-            </Button>
-            
             {currentStep < 3 ? (
-              <Button 
-                variant="primary" 
-                size="default" 
-                onClick={handleNext}
-                disabled={currentStep === 1 ? !isStep1Valid : currentStep === 2 ? !isStep2Valid : false}
-                className="flex items-center gap-2"
-              >
-                Next
-                <ArrowRight className="w-4 h-4" />
-              </Button>
+              <>
+                <Button 
+                  variant="secondary" 
+                  size="default" 
+                  onClick={handleSkipStep}
+                >
+                  Skip Step
+                </Button>
+                <Button 
+                  variant="primary" 
+                  size="default" 
+                  onClick={handleNext}
+                  disabled={currentStep === 1 ? !isStep1Valid : currentStep === 2 ? !isStep2Valid : false}
+                  className="flex items-center gap-2"
+                >
+                  Next
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </>
             ) : (
-              <Button 
-                variant="primary" 
-                size="default" 
-                onClick={handleComplete}
-                className="flex items-center gap-2"
-              >
-                Start Swapping
-                <ArrowRight className="w-4 h-4" />
-              </Button>
+              <>
+                <Button 
+                  variant="secondary" 
+                  size="default" 
+                  onClick={handleSkipAll}
+                >
+                  Skip All
+                </Button>
+                <Button 
+                  variant="primary" 
+                  size="default" 
+                  onClick={handleComplete}
+                  className="flex items-center gap-2"
+                >
+                  Start Swapping
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </>
             )}
           </div>
         </div>
       </div>
+
+      {/* Avatar Upload Modal */}
+      {showAvatarUpload && (
+        <div className="fixed inset-0 flex items-center justify-center p-4" style={{ zIndex: 10000 }}>
+          <div 
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowAvatarUpload(false)}
+          />
+          <div 
+            className="relative w-full max-w-md rounded-3xl p-6"
+            style={{ backgroundColor: 'var(--bg-card)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <AvatarUpload
+              currentImageUrl={profileData.avatarUrl}
+              onUpload={handleAvatarUpload}
+              onCancel={() => setShowAvatarUpload(false)}
+            />
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }

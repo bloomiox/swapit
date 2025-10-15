@@ -35,12 +35,31 @@ const typeOptions = [
 
 const categoryOptions = [
   { id: 'all', name: 'All Categories', icon: '📦' },
-  { id: 'books', name: 'Books', icon: '📚' },
-  { id: 'clothing', name: 'Clothing', icon: '👕' },
   { id: 'electronics', name: 'Electronics', icon: '📱' },
-  { id: 'decor', name: 'Decor', icon: '🏠' },
-  { id: 'sports', name: 'Sports & Fitness', icon: '⚽' },
-  { id: 'games', name: 'Toys & Games', icon: '🎮' }
+  { id: 'clothing-fashion', name: 'Clothing & Fashion', icon: '👕' },
+  { id: 'books-media', name: 'Books & Media', icon: '📚' },
+  { id: 'home-furniture', name: 'Home & Furniture', icon: '🏠' },
+  { id: 'sports-fitness', name: 'Sports & Fitness', icon: '⚽' },
+  { id: 'toys-games', name: 'Toys & Games', icon: '🎮' },
+  { id: 'music-instruments', name: 'Music & Instruments', icon: '🎵' },
+  { id: 'art-crafts', name: 'Art & Crafts', icon: '🎨' },
+  { id: 'automotive', name: 'Automotive', icon: '🚗' },
+  { id: 'health-beauty', name: 'Health & Beauty', icon: '💄' },
+  { id: 'baby-kids', name: 'Baby & Kids', icon: '👶' },
+  { id: 'pet-supplies', name: 'Pet Supplies', icon: '🐕' },
+  { id: 'tools-hardware', name: 'Tools & Hardware', icon: '🔧' },
+  { id: 'kitchen-dining', name: 'Kitchen & Dining', icon: '🍽️' },
+  { id: 'office-business', name: 'Office & Business', icon: '💼' },
+  { id: 'garden-outdoor', name: 'Garden & Outdoor', icon: '🌱' },
+  { id: 'jewelry-watches', name: 'Jewelry & Watches', icon: '💎' },
+  { id: 'collectibles-antiques', name: 'Collectibles & Antiques', icon: '👑' },
+  { id: 'travel-luggage', name: 'Travel & Luggage', icon: '✈️' },
+  { id: 'photography', name: 'Photography', icon: '📷' },
+  { id: 'computer-gaming', name: 'Computer & Gaming', icon: '💻' },
+  { id: 'mobile-tablets', name: 'Mobile & Tablets', icon: '📱' },
+  { id: 'audio-headphones', name: 'Audio & Headphones', icon: '🎧' },
+  { id: 'bicycles-scooters', name: 'Bicycles & Scooters', icon: '🚲' },
+  { id: 'food-beverages', name: 'Food & Beverages', icon: '☕' }
 ]
 
 export function FilterModal({ 

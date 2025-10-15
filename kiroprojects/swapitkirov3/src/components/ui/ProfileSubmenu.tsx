@@ -4,9 +4,7 @@ import React, { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { 
   User, 
-  Globe, 
-  Mail, 
-  Shield, 
+  Settings,
   LogOut, 
   ChevronRight 
 } from 'lucide-react'
@@ -57,32 +55,11 @@ export function ProfileSubmenu({
       showArrow: true
     },
     {
-      id: 'language',
-      label: 'Language',
-      icon: Globe,
+      id: 'settings',
+      label: 'Settings',
+      icon: Settings,
       onClick: () => {
-        console.log('Open language settings')
-        onClose()
-      },
-      showArrow: true,
-      rightText: 'ENG'
-    },
-    {
-      id: 'email',
-      label: 'Email Preferences',
-      icon: Mail,
-      onClick: () => {
-        console.log('Open email preferences')
-        onClose()
-      },
-      showArrow: true
-    },
-    {
-      id: 'privacy',
-      label: 'Privacy & Security',
-      icon: Shield,
-      onClick: () => {
-        console.log('Open privacy settings')
+        router.push('/settings')
         onClose()
       },
       showArrow: true
@@ -143,14 +120,6 @@ export function ProfileSubmenu({
                 
                 {/* Right Content */}
                 <div className="flex items-center gap-2">
-                  {item.rightText && (
-                    <span 
-                      className="text-caption"
-                      style={{ color: 'var(--text-primary)' }}
-                    >
-                      {item.rightText}
-                    </span>
-                  )}
                   {item.showArrow && (
                     <ChevronRight 
                       className="w-6 h-6" 

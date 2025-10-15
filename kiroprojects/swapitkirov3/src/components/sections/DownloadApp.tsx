@@ -1,8 +1,7 @@
 export function DownloadApp() {
   return (
     <section 
-      className="relative flex flex-col items-center gap-6 lg:gap-10 px-4 md:px-6 lg:px-[165px] py-section-mobile md:py-section-tablet lg:py-20 overflow-hidden"
-      style={{ backgroundColor: 'var(--bg-primary)' }}
+      className="relative flex flex-col items-center gap-6 lg:gap-10 px-4 md:px-6 lg:px-[165px] py-section-mobile md:py-section-tablet lg:py-20 overflow-hidden bg-green-50"
     >
       <div className="flex flex-col gap-6 lg:gap-10 w-full z-10">
         {/* Section Header */}

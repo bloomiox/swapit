@@ -13,6 +13,10 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { ItemAddedSuccessModal } from './ItemAddedSuccessModal'
 import { BoostItemModal } from './BoostItemModal'
+import { ImageUpload } from '@/components/ui/ImageUpload'
+import { LocationPicker } from '@/components/ui/LocationPicker'
+import { useAuth } from '@/contexts/AuthContext'
+import { useCategories, useCreateItem } from '@/hooks/useCategories'
 
 interface AddItemModalProps {
   isOpen: boolean
@@ -20,31 +24,27 @@ interface AddItemModalProps {
   onSuccess?: (itemId: string, itemTitle: string) => void
 }
 
+interface Location {
+  name: string
+  coordinates: {
+    lat: number
+    lng: number
+  }
+}
+
 interface FormData {
-  photos: File[]
+  photos: string[] // Changed to store URLs instead of File objects
   itemType: 'swap' | 'drop'
   title: string
   description: string
-  category: string
-  condition: 'new' | 'like-new' | 'good' | 'fair' | 'poor'
-  location: string
+  categoryId: string
+  condition: 'like_new' | 'good' | 'fair' | 'poor'
+  location: Location | null
   swapPreferences: string[]
 }
 
-const categories = [
-  'Electronics',
-  'Furniture',
-  'Clothing',
-  'Books',
-  'Sports & Outdoors',
-  'Home & Garden',
-  'Toys & Games',
-  'Other'
-]
-
 const conditions = [
-  { id: 'new', label: 'New', emoji: '😊' },
-  { id: 'like-new', label: 'Like New', emoji: '🙂' },
+  { id: 'like_new', label: 'Like New', emoji: '🙂' },
   { id: 'good', label: 'Good', emoji: '😐' },
   { id: 'fair', label: 'Fair', emoji: '🙁' },
   { id: 'poor', label: 'Poor', emoji: '😞' }
@@ -56,9 +56,9 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
     itemType: 'swap',
     title: '',
     description: '',
-    category: '',
-    condition: 'new',
-    location: '',
+    categoryId: '',
+    condition: 'like_new',
+    location: null,
     swapPreferences: []
   })
   const [addAnother, setAddAnother] = useState(false)
@@ -67,16 +67,22 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [showBoostModal, setShowBoostModal] = useState(false)
   const [lastAddedItem, setLastAddedItem] = useState<{ id: string; title: string } | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState<string | null>(null)
+  
+  const { user } = useAuth()
+  const { categories, loading: categoriesLoading } = useCategories()
+  const { createItem, loading: createLoading, error: createError } = useCreateItem()
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    if (formData.photos.length + files.length <= 8) {
-      setFormData(prev => ({
-        ...prev,
-        photos: [...prev.photos, ...files]
-      }))
-    }
+  const handleImageUpload = (urls: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      photos: [...prev.photos, ...urls].slice(0, 8) // Limit to 8 photos
+    }))
+    setError(null)
+  }
+
+  const handleImageError = (errorMessage: string) => {
+    setError(errorMessage)
   }
 
   const removePhoto = (index: number) => {
@@ -103,64 +109,84 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    if (!user) {
+      setError('You must be logged in to add an item')
+      return
+    }
+    
     // Basic validation
-    if (formData.photos.length < 3) {
-      alert('Please add at least 3 photos')
+    if (formData.photos.length < 1) {
+      setError('Please add at least 1 photo')
       return
     }
     
     if (!formData.title.trim()) {
-      alert('Please enter a title')
+      setError('Please enter a title')
       return
     }
     
     if (!formData.description.trim()) {
-      alert('Please enter a description')
+      setError('Please enter a description')
       return
     }
     
-    if (!formData.category) {
-      alert('Please select a category')
+    if (!formData.categoryId) {
+      setError('Please select a category')
       return
     }
     
-    if (!formData.location.trim()) {
-      alert('Please enter a location')
+    if (!formData.location) {
+      setError('Please select a location')
       return
     }
-    
-    console.log('Form submitted:', formData)
-    
-    // Generate a mock item ID (in real app, this would come from the API)
-    const itemId = `item_${Date.now()}`
-    const itemTitle = formData.title
-    
-    // Store the added item info
-    setLastAddedItem({ id: itemId, title: itemTitle })
-    
-    if (!addAnother) {
-      // Close the add item modal and show success modal
-      onClose()
-      setShowSuccessModal(true)
-    } else {
-      // Reset form but keep some preferences and show success modal
-      setFormData({
-        photos: [],
-        itemType: formData.itemType,
-        title: '',
-        description: '',
-        category: '',
-        condition: 'new',
-        location: formData.location,
-        swapPreferences: formData.swapPreferences
+
+    setError(null)
+
+    try {
+      // Create item using the hook
+      const itemData = await createItem({
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        category_id: formData.categoryId,
+        condition: formData.condition,
+        is_free: formData.itemType === 'drop',
+        images: formData.photos,
+        location_name: formData.location.name,
+        location_coordinates: formData.location.coordinates
       })
-      setShowSuccessModal(true)
+
+      console.log('Item created successfully:', itemData)
+      
+      // Store the added item info
+      setLastAddedItem({ id: itemData.id, title: itemData.title })
+      
+      if (!addAnother) {
+        // Close the add item modal and show success modal
+        onClose()
+        setShowSuccessModal(true)
+      } else {
+        // Reset form but keep some preferences and show success modal
+        setFormData({
+          photos: [],
+          itemType: formData.itemType,
+          title: '',
+          description: '',
+          categoryId: '',
+          condition: 'like_new',
+          location: formData.location,
+          swapPreferences: formData.swapPreferences
+        })
+        setShowSuccessModal(true)
+      }
+      
+      onSuccess?.(itemData.id, itemData.title)
+    } catch (error) {
+      console.error('Error creating item:', error)
+      setError(error instanceof Error ? error.message : 'Failed to create item')
     }
-    
-    onSuccess?.(itemId, itemTitle)
   }
 
   return (
@@ -176,6 +202,13 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
           </h2>
         </div>
 
+        {/* Error Message */}
+        {(error || createError) && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error || createError}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Photos Section */}
           <div>
@@ -190,62 +223,47 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
                 className="text-caption"
                 style={{ color: 'var(--text-secondary)' }}
               >
-                Min 3 & Max 8 photos (each up to 10 MB)
+                Min 1 & Max 8 photos (each up to 10 MB)
               </p>
             </div>
             
-            <div className="flex gap-1 overflow-x-auto">
-              {/* Upload Button */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="flex-shrink-0 w-[140px] h-[200px] border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 hover:opacity-80 transition-opacity"
-                style={{ borderColor: 'var(--border-color)' }}
-              >
-                <div 
-                  className="w-14 h-14 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: '#D8F7D7' }}
-                >
-                  <Plus 
-                    className="w-6 h-6" 
-                    style={{ color: '#416B40' }}
-                    strokeWidth={1.5}
-                  />
-                </div>
-              </button>
-
-              {/* Photo Previews */}
-              {formData.photos.map((photo, index) => (
-                <div key={index} className="relative flex-shrink-0 w-[140px] h-[200px] rounded-xl overflow-hidden">
-                  <img
-                    src={URL.createObjectURL(photo)}
-                    alt={`Upload ${index + 1}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(index)}
-                    className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: '#FDE1E0' }}
-                  >
-                    <X 
-                      className="w-5 h-5" 
-                      style={{ color: '#7C0D09' }}
-                      strokeWidth={1.5}
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handlePhotoUpload}
-              className="hidden"
+            <ImageUpload
+              bucket="item-images"
+              onUpload={handleImageUpload}
+              onError={handleImageError}
+              multiple={true}
+              maxFiles={8}
+              compress={true}
             />
+
+            {/* Current Photos Display */}
+            {formData.photos.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  {formData.photos.length} photo{formData.photos.length !== 1 ? 's' : ''} uploaded
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {formData.photos.map((photoUrl, index) => (
+                    <div key={index} className="relative group">
+                      <div className="aspect-square rounded-lg overflow-hidden border">
+                        <img
+                          src={photoUrl}
+                          alt={`Item photo ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(index)}
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Item Type Selection */}
@@ -314,7 +332,7 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
                     className="text-body-normal font-medium"
                     style={{ color: formData.itemType === 'drop' ? '#416B40' : 'var(--text-primary)' }}
                   >
-                    Drop It
+                    Free
                   </div>
                   <div 
                     className="text-body-small"
@@ -389,11 +407,15 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
                 backgroundColor: 'var(--bg-primary)',
                 borderColor: 'var(--border-color)'
               }}
+              disabled={categoriesLoading}
             >
               <span 
-                style={{ color: formData.category ? 'var(--text-primary)' : 'var(--text-secondary)' }}
+                style={{ color: formData.categoryId ? 'var(--text-primary)' : 'var(--text-secondary)' }}
               >
-                {formData.category || 'Select'}
+                {formData.categoryId 
+                  ? categories.find(c => c.id === formData.categoryId)?.name || 'Select'
+                  : categoriesLoading ? 'Loading...' : 'Select'
+                }
               </span>
               <ChevronDown 
                 className="w-5 h-5" 
@@ -402,7 +424,7 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
               />
             </button>
 
-            {showCategoryDropdown && (
+            {showCategoryDropdown && !categoriesLoading && (
               <div 
                 className="absolute top-full left-0 right-0 mt-1 border rounded-2xl max-h-48 overflow-y-auto"
                 style={{
@@ -413,16 +435,16 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
               >
                 {categories.map((category) => (
                   <button
-                    key={category}
+                    key={category.id}
                     type="button"
                     onClick={() => {
-                      setFormData(prev => ({ ...prev, category }))
+                      setFormData(prev => ({ ...prev, categoryId: category.id }))
                       setShowCategoryDropdown(false)
                     }}
                     className="w-full p-3 text-left hover:opacity-80 transition-opacity"
                     style={{ color: 'var(--text-primary)' }}
                   >
-                    {category}
+                    {category.name}
                   </button>
                 ))}
               </div>
@@ -475,26 +497,10 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
             >
               Location
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={formData.location}
-                onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                placeholder="Enter location"
-                className="w-full p-3 pr-12 rounded-2xl border"
-                style={{
-                  backgroundColor: 'var(--bg-primary)',
-                  borderColor: 'var(--border-color)',
-                  color: 'var(--text-primary)'
-                }}
-                required
-              />
-              <MapPin 
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5" 
-                style={{ color: 'var(--text-primary)' }}
-                strokeWidth={1.5}
-              />
-            </div>
+            <LocationPicker
+              onLocationChange={(location) => setFormData(prev => ({ ...prev, location }))}
+              className="w-full"
+            />
           </div>
 
           {/* Swap Preferences (only for swap items) */}
@@ -582,14 +588,16 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
               variant="primary"
               size="large"
               disabled={
-                formData.photos.length < 3 || 
+                createLoading ||
+                categoriesLoading ||
+                formData.photos.length < 1 || 
                 !formData.title.trim() || 
                 !formData.description.trim() || 
-                !formData.category || 
-                !formData.location.trim()
+                !formData.categoryId || 
+                !formData.location
               }
             >
-              Add Item
+              {createLoading ? 'Adding Item...' : 'Add Item'}
             </Button>
           </div>
         </form>

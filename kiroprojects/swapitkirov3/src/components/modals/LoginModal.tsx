@@ -4,6 +4,8 @@ import React, { useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Eye, EyeOff } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { ForgotPasswordModal } from './ForgotPasswordModal'
 
 interface LoginModalProps {
   isOpen: boolean
@@ -13,15 +15,66 @@ interface LoginModalProps {
 
 export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProps) {
   const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { signIn, signInWithProvider } = useAuth()
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle login logic here
-    console.log('Login:', formData)
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { error } = await signIn(formData.email, formData.password)
+      
+      if (error) {
+        setError(error.message)
+      } else {
+        // Success - close modal
+        onClose()
+        setFormData({ email: '', password: '' })
+      }
+    } catch (err) {
+      setError('An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSocialLogin = async (provider: 'google' | 'apple') => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { error } = await signInWithProvider(provider)
+      
+      if (error) {
+        setError(error.message)
+      }
+      // Note: For OAuth, the user will be redirected, so we don't close the modal here
+    } catch (err) {
+      setError('An unexpected error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleForgotPassword = () => {
+    setShowForgotPassword(true)
+  }
+
+  const handleCloseForgotPassword = () => {
+    setShowForgotPassword(false)
+  }
+
+  const handleBackToLogin = () => {
+    setShowForgotPassword(false)
   }
 
   const handleInputChange = (field: string, value: string) => {
@@ -46,6 +99,13 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
             Login to continue swapping
           </p>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4 mb-6">
@@ -112,15 +172,23 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
           <div className="flex justify-end">
             <button
               type="button"
+              onClick={handleForgotPassword}
               className="text-body-small-bold text-primary hover:opacity-80 transition-opacity"
+              disabled={loading}
             >
               Forgot Password?
             </button>
           </div>
 
           {/* Login Button */}
-          <Button variant="primary" size="large" type="submit" className="w-full">
-            Login
+          <Button 
+            variant="primary" 
+            size="large" 
+            type="submit" 
+            className="w-full"
+            disabled={loading}
+          >
+            {loading ? 'Signing in...' : 'Login'}
           </Button>
         </form>
 
@@ -148,7 +216,8 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
             variant="outlined" 
             size="large" 
             className="w-full flex items-center justify-center gap-3"
-            onClick={() => console.log('Google login')}
+            onClick={() => handleSocialLogin('google')}
+            disabled={loading}
           >
             <div className="w-5 h-5 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -165,7 +234,8 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
             variant="outlined" 
             size="large" 
             className="w-full flex items-center justify-center gap-3"
-            onClick={() => console.log('Apple login')}
+            onClick={() => handleSocialLogin('apple')}
+            disabled={loading}
           >
             <div className="w-5 h-5 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -187,6 +257,13 @@ export function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProp
           </button>
         </div>
       </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={handleCloseForgotPassword}
+        onBackToLogin={handleBackToLogin}
+      />
     </Modal>
   )
 }

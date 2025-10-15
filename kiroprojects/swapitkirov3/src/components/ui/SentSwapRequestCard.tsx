@@ -1,31 +1,16 @@
 'use client'
 
 import React from 'react'
+import { useRouter } from 'next/navigation'
 import { 
   MessageCircle, 
   RotateCcw
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
+import { SwapRequest } from '@/hooks/useSwapRequests'
 
 interface SentSwapRequestCardProps {
-  request: {
-    id: string
-    user: {
-      name: string
-      avatar: string
-      timestamp: string
-    }
-    wantedItem: {
-      title: string
-      image: string
-    }
-    offeredItem: {
-      title: string
-      image: string
-    }
-    message: string
-    status: 'pending' | 'accepted' | 'rejected'
-  }
+  request: SwapRequest
   onMessage: (requestId: string) => void
 }
 
@@ -33,6 +18,52 @@ export function SentSwapRequestCard({
   request, 
   onMessage 
 }: SentSwapRequestCardProps) {
+  const router = useRouter()
+
+  const handleItemClick = (itemId: string) => {
+    router.push(`/item/${itemId}`)
+  }
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-US', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'accepted':
+        return '#119C21'
+      case 'rejected':
+        return '#FD5F59'
+      case 'completed':
+        return '#119C21'
+      case 'cancelled':
+        return '#6B7280'
+      default:
+        return '#E1B517'
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'accepted':
+        return 'Accepted'
+      case 'rejected':
+        return 'Rejected'
+      case 'completed':
+        return 'Completed'
+      case 'cancelled':
+        return 'Cancelled'
+      default:
+        return 'Pending'
+    }
+  }
+
   return (
     <div
       className="p-4 rounded-2xl border"
@@ -42,25 +73,52 @@ export function SentSwapRequestCard({
       }}
     >
       {/* User Info */}
-      <div className="flex items-center gap-3 mb-4">
-        <img
-          src={request.user.avatar}
-          alt={request.user.name}
-          className="w-10 h-10 rounded-full object-cover"
-        />
-        <div>
-          <h3 
-            className="text-body-normal font-medium"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {request.user.name}
-          </h3>
-          <p 
-            className="text-body-small"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            {request.user.timestamp}
-          </p>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          {request.owner.avatar_url ? (
+            <img
+              src={request.owner.avatar_url}
+              alt={request.owner.full_name || 'User'}
+              className="w-10 h-10 rounded-full object-cover"
+            />
+          ) : (
+            <div 
+              className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+              style={{ 
+                backgroundColor: '#D8F7D7',
+                color: '#119C21'
+              }}
+            >
+              {(request.owner.full_name || 'U')[0].toUpperCase()}
+            </div>
+          )}
+          <div>
+            <h3 
+              className="text-body-normal font-medium"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {request.owner.full_name || 'Anonymous User'}
+            </h3>
+            <p 
+              className="text-body-small"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              {formatDate(request.created_at)}
+            </p>
+          </div>
+        </div>
+
+        {/* Status Badge */}
+        <div 
+          className="px-3 py-1 rounded-full"
+          style={{ 
+            backgroundColor: `${getStatusColor(request.status)}20`,
+            color: getStatusColor(request.status)
+          }}
+        >
+          <span className="text-caption-medium font-medium">
+            {getStatusText(request.status)}
+          </span>
         </div>
       </div>
 
@@ -73,12 +131,35 @@ export function SentSwapRequestCard({
           {/* Wanted Item */}
           <div className="flex-1">
             <div className="flex gap-3 pb-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
-              <div className="w-[92px] h-[92px] rounded-xl overflow-hidden bg-gray-200">
-                <img
-                  src={request.wantedItem.image}
-                  alt={request.wantedItem.title}
-                  className="w-full h-full object-cover"
-                />
+              <div 
+                className="w-[92px] h-[92px] rounded-xl overflow-hidden bg-gray-200 relative cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => handleItemClick(request.requested_item.id)}
+              >
+                {request.requested_item.images && request.requested_item.images.length > 0 ? (
+                  <img
+                    src={request.requested_item.images[0]}
+                    alt={request.requested_item.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    <span className="text-xs">No Image</span>
+                  </div>
+                )}
+                
+                {/* Free Badge */}
+                {request.requested_item.is_free && (
+                  <div 
+                    className="absolute top-1 right-1 px-2 py-1 rounded-full"
+                    style={{ backgroundColor: '#119C21' }}
+                  >
+                    <span 
+                      className="text-xs font-medium text-white"
+                    >
+                      FREE
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="flex-1">
                 <p 
@@ -88,10 +169,11 @@ export function SentSwapRequestCard({
                   You Want
                 </p>
                 <h4 
-                  className="text-body-small font-bold"
+                  className="text-body-small font-bold cursor-pointer hover:opacity-80 transition-opacity"
                   style={{ color: 'var(--text-primary)' }}
+                  onClick={() => handleItemClick(request.requested_item.id)}
                 >
-                  {request.wantedItem.title}
+                  {request.requested_item.title}
                 </h4>
               </div>
             </div>
@@ -99,65 +181,81 @@ export function SentSwapRequestCard({
         </div>
 
         {/* Offered Item */}
-        <div className="flex pt-4">
-          <div className="flex-1">
-            <div className="flex gap-3">
-              <div className="w-[92px] h-[92px] rounded-xl overflow-hidden bg-gray-200">
-                <img
-                  src={request.offeredItem.image}
-                  alt={request.offeredItem.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="flex-1">
-                <p 
-                  className="text-caption mb-1"
-                  style={{ color: 'var(--text-secondary)' }}
+        {request.offered_item && (
+          <div className="flex pt-4">
+            <div className="flex-1">
+              <div className="flex gap-3">
+                <div 
+                  className="w-[92px] h-[92px] rounded-xl overflow-hidden bg-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => request.offered_item && handleItemClick(request.offered_item.id)}
                 >
-                  You Offering
-                </p>
-                <h4 
-                  className="text-body-small font-bold"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  {request.offeredItem.title}
-                </h4>
+                  {request.offered_item.images && request.offered_item.images.length > 0 ? (
+                    <img
+                      src={request.offered_item.images[0]}
+                      alt={request.offered_item.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      <span className="text-xs">No Image</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p 
+                    className="text-caption mb-1"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    You Offering
+                  </p>
+                  <h4 
+                    className="text-body-small font-bold cursor-pointer hover:opacity-80 transition-opacity"
+                    style={{ color: 'var(--text-primary)' }}
+                    onClick={() => request.offered_item && handleItemClick(request.offered_item.id)}
+                  >
+                    {request.offered_item.title}
+                  </h4>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Swap Icon */}
-        <div 
-          className="absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: '#D8F7D7' }}
-        >
-          <RotateCcw 
-            className="w-5 h-5" 
-            style={{ color: '#416B40' }}
-            strokeWidth={1.5}
-          />
-        </div>
+        {request.offered_item && (
+          <div 
+            className="absolute right-4 top-1/2 transform -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: '#D8F7D7' }}
+          >
+            <RotateCcw 
+              className="w-5 h-5" 
+              style={{ color: '#416B40' }}
+              strokeWidth={1.5}
+            />
+          </div>
+        )}
       </div>
 
       {/* Message */}
-      <div 
-        className="p-3 rounded-2xl mb-4"
-        style={{ backgroundColor: '#F9F9F9' }}
-      >
-        <p 
-          className="text-caption-medium mb-1"
-          style={{ color: 'var(--text-secondary)' }}
+      {request.message && (
+        <div 
+          className="p-3 rounded-2xl mb-4"
+          style={{ backgroundColor: '#F9F9F9' }}
         >
-          Message
-        </p>
-        <p 
-          className="text-body-small"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          {request.message}
-        </p>
-      </div>
+          <p 
+            className="text-caption-medium mb-1"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            Message
+          </p>
+          <p 
+            className="text-body-small"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {request.message}
+          </p>
+        </div>
+      )}
 
       {/* Action Buttons - Only Message button for sent requests */}
       <div className="flex gap-2">

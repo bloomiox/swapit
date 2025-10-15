@@ -8,9 +8,10 @@ interface ModalProps {
   onClose: () => void
   children: React.ReactNode
   className?: string
+  disableClose?: boolean
 }
 
-export function Modal({ isOpen, onClose, children, className = '' }: ModalProps) {
+export function Modal({ isOpen, onClose, children, className = '', disableClose = false }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden'
@@ -25,7 +26,7 @@ export function Modal({ isOpen, onClose, children, className = '' }: ModalProps)
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !disableClose) {
         onClose()
       }
     }
@@ -37,7 +38,7 @@ export function Modal({ isOpen, onClose, children, className = '' }: ModalProps)
     return () => {
       document.removeEventListener('keydown', handleEscape)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, disableClose])
 
   if (!isOpen) return null
 
@@ -46,7 +47,7 @@ export function Modal({ isOpen, onClose, children, className = '' }: ModalProps)
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={disableClose ? undefined : onClose}
       />
       
       {/* Modal Content */}
@@ -59,12 +60,14 @@ export function Modal({ isOpen, onClose, children, className = '' }: ModalProps)
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-6 right-6 w-6 h-6 flex items-center justify-center hover:opacity-70 transition-opacity z-10"
-        >
-          <X className="w-4 h-4" style={{ color: 'var(--text-primary)' }} />
-        </button>
+        {!disableClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-6 right-6 w-6 h-6 flex items-center justify-center hover:opacity-70 transition-opacity z-10"
+          >
+            <X className="w-4 h-4" style={{ color: 'var(--text-primary)' }} />
+          </button>
+        )}
         
         {children}
       </div>

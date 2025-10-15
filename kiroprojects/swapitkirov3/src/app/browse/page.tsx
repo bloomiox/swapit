@@ -9,62 +9,12 @@ import { Search, ChevronDown, List, Map, Locate, X } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { LocationPicker } from '@/components/ui/LocationPicker'
 import { FilterModal } from '@/components/modals/FilterModal'
-
-// Mock data for demonstration
-const mockItems = [
-  {
-    id: '1',
-    title: 'Vintage Leather Jacket',
-    location: 'Downtown, City Center',
-    image: '/placeholder.jpg',
-    isFree: false
-  },
-  {
-    id: '2',
-    title: 'Wooden Coffee Table',
-    location: 'Suburbs, North District',
-    image: '/placeholder.jpg',
-    isFree: true
-  },
-  {
-    id: '3',
-    title: 'Mountain Bike',
-    location: 'East Side, Park Area',
-    image: '/placeholder.jpg',
-    isFree: false
-  },
-  {
-    id: '4',
-    title: 'Books Collection',
-    location: 'University District',
-    image: '/placeholder.jpg',
-    isFree: true
-  },
-  {
-    id: '5',
-    title: 'Gaming Console',
-    location: 'Tech Quarter',
-    image: '/placeholder.jpg',
-    isFree: false
-  },
-  {
-    id: '6',
-    title: 'Plant Collection',
-    location: 'Garden District',
-    image: '/placeholder.jpg',
-    isFree: true
-  }
-]
-
-const categoryData = [
-  { id: 'all', name: 'All Categories', icon: '📦' },
-  { id: 'books', name: 'Books', icon: '📚' },
-  { id: 'clothing', name: 'Clothing', icon: '👕' },
-  { id: 'electronics', name: 'Electronics', icon: '📱' },
-  { id: 'decor', name: 'Decor', icon: '🏠' },
-  { id: 'sports', name: 'Sports & Fitness', icon: '⚽' },
-  { id: 'games', name: 'Toys & Games', icon: '🎮' }
-]
+import { useItems, ItemFilters } from '@/hooks/useItems'
+import { useCategories } from '@/hooks/useCategories'
+import { useAuth } from '@/contexts/AuthContext'
+import { useFeaturedItemsForYou, useRecommendedItems, useTrendingItems, useExploreMoreItems } from '@/hooks/useBrowseRecommendations'
+import { useProfileCompletion } from '@/hooks/useProfileCompletion'
+import { ItemSection } from '@/components/sections/ItemSection'
 
 export default function BrowsePage() {
   const [viewMode, setViewMode] = React.useState<'list' | 'map'>('list') // Default to List view
@@ -85,6 +35,76 @@ export default function BrowsePage() {
     type: 'all',
     category: [] as string[]
   })
+
+  // Auth and data hooks
+  const { user } = useAuth()
+  const { categories } = useCategories()
+  const { isProfileComplete, hasInterests, loading: profileLoading } = useProfileCompletion()
+  
+  // Recommendation hooks for authenticated users
+  const { items: featuredForYou, loading: featuredLoading } = useFeaturedItemsForYou()
+  const { items: recommendedItems, loading: recommendedLoading } = useRecommendedItems()
+  const { items: trendingItems, loading: trendingLoading } = useTrendingItems()
+  
+  // Collect IDs from other sections to avoid duplicates in Explore More
+  const excludeItemIds = React.useMemo(() => {
+    const ids = new Set<string>()
+    featuredForYou.forEach(item => ids.add(item.id))
+    recommendedItems.forEach(item => ids.add(item.id))
+    trendingItems.forEach(item => ids.add(item.id))
+    return Array.from(ids)
+  }, [featuredForYou, recommendedItems, trendingItems])
+  
+  const { items: exploreItems, loading: exploreLoading } = useExploreMoreItems(excludeItemIds)
+  
+  // Build item filters from current state
+  const itemFilters: ItemFilters = React.useMemo(() => {
+    const filterObj: ItemFilters = {}
+    
+    if (filters.category.length > 0) {
+      filterObj.category_ids = filters.category
+    }
+    
+    if (filters.condition !== 'all') {
+      filterObj.condition = filters.condition as 'like_new' | 'good' | 'fair' | 'poor'
+    }
+    
+    if (filters.type === 'free') {
+      filterObj.is_free = true
+    } else if (filters.type === 'swap') {
+      filterObj.is_free = false
+    }
+    
+    if (searchQuery.trim()) {
+      filterObj.search_query = searchQuery.trim()
+    }
+    
+    return filterObj
+  }, [filters, searchQuery])
+  
+  const { items, loading, error } = useItems(itemFilters)
+  
+  // Check if there are active filters
+  const hasActiveFilters = searchQuery.length > 0 || 
+    filters.condition !== 'all' ||
+    filters.distance !== 50 ||
+    filters.sorting !== 'newest' ||
+    filters.type !== 'all' ||
+    (filters.category && filters.category.length > 0)
+  
+  // Show personalized sections only when user is authenticated and no active filters/search
+  const showPersonalizedSections = user && !searchQuery && !hasActiveFilters
+
+  // Create category data with real categories
+  const categoryData = React.useMemo(() => {
+    const allCategory = { id: 'all', name: 'All Categories', icon: '📦' }
+    const realCategories = categories.map((cat: any) => ({
+      id: cat.id,
+      name: cat.name,
+      icon: cat.icon || '📦'
+    }))
+    return [allCategory, ...realCategories]
+  }, [categories])
 
   // Helper functions and computed values
 
@@ -185,9 +205,14 @@ export default function BrowsePage() {
         // Load selected categories
         const savedCategories = localStorage.getItem('browse-categories')
         if (savedCategories) {
-          const categories = JSON.parse(savedCategories)
-          if (Array.isArray(categories)) {
-            setSelectedCategories(categories)
+          try {
+            const categories = JSON.parse(savedCategories)
+            if (Array.isArray(categories)) {
+              setSelectedCategories(categories)
+            }
+          } catch (error) {
+            console.error('Error parsing saved categories:', error)
+            localStorage.removeItem('browse-categories')
           }
         }
 
@@ -200,29 +225,39 @@ export default function BrowsePage() {
         // Load location
         const savedLocation = localStorage.getItem('browse-location')
         if (savedLocation) {
-          const location = JSON.parse(savedLocation)
-          if (location && location.name && location.coordinates) {
-            setCurrentLocation(location)
+          try {
+            const location = JSON.parse(savedLocation)
+            if (location && location.name && location.coordinates) {
+              setCurrentLocation(location)
+            }
+          } catch (error) {
+            console.error('Error parsing saved location:', error)
+            localStorage.removeItem('browse-location')
           }
         }
 
         // Load filters
         const savedFilters = localStorage.getItem('browse-filters')
         if (savedFilters) {
-          const parsedFilters = JSON.parse(savedFilters)
-          if (parsedFilters) {
-            // Ensure all filter properties exist with defaults
-            setFilters({
-              condition: parsedFilters.condition || 'all',
-              distance: parsedFilters.distance || 50,
-              sorting: parsedFilters.sorting || 'newest',
-              type: parsedFilters.type || 'all',
-              category: parsedFilters.category || []
-            })
-            // Also update selectedCategories for backward compatibility
-            if (parsedFilters.category) {
-              setSelectedCategories(parsedFilters.category)
+          try {
+            const parsedFilters = JSON.parse(savedFilters)
+            if (parsedFilters) {
+              // Ensure all filter properties exist with defaults
+              setFilters({
+                condition: parsedFilters.condition || 'all',
+                distance: parsedFilters.distance || 50,
+                sorting: parsedFilters.sorting || 'newest',
+                type: parsedFilters.type || 'all',
+                category: parsedFilters.category || []
+              })
+              // Also update selectedCategories for backward compatibility
+              if (parsedFilters.category) {
+                setSelectedCategories(parsedFilters.category)
+              }
             }
+          } catch (error) {
+            console.error('Error parsing saved filters:', error)
+            localStorage.removeItem('browse-filters')
           }
         }
       } catch (error) {
@@ -256,14 +291,6 @@ export default function BrowsePage() {
       localStorage.setItem('browse-filters', JSON.stringify(filters))
     }
   }, [filters, isInitialized])
-
-
-  const hasActiveFilters = searchQuery.length > 0 || 
-    filters.condition !== 'all' ||
-    filters.distance !== 50 ||
-    filters.sorting !== 'newest' ||
-    filters.type !== 'all' ||
-    (filters.category && filters.category.length > 0)
 
 
 
@@ -412,61 +439,171 @@ export default function BrowsePage() {
         </div>
       </section>
 
+      {/* Personalized Sections for Authenticated Users - Only show in list view */}
+      {showPersonalizedSections && viewMode === 'list' && (
+        <div style={{ backgroundColor: 'var(--bg-primary)' }}>
+          {/* Featured Items for You */}
+          <ItemSection
+            title="Featured Items for You"
+            description="Popular items in your area"
+            items={featuredForYou}
+            loading={featuredLoading}
+            error={null}
+            emptyMessage="No featured items in your area yet."
+            className="border-b border-gray-200"
+          />
+
+          {/* Recommended Items */}
+          <ItemSection
+            title="Recommended for You"
+            description="Items based on your interests"
+            items={recommendedItems}
+            loading={recommendedLoading || profileLoading}
+            error={null}
+            emptyMessage={
+              !isProfileComplete || !hasInterests
+                ? "Complete your profile and select interests to get personalized recommendations."
+                : "No items match your interests yet. Check back later!"
+            }
+            className="border-b border-gray-200"
+          />
+
+          {/* Trending Items */}
+          <ItemSection
+            title="Trending Items"
+            description="Most viewed and requested items"
+            items={trendingItems}
+            loading={trendingLoading}
+            error={null}
+            emptyMessage="No trending items right now."
+            className="border-b border-gray-200"
+          />
+
+          {/* Explore More */}
+          <ItemSection
+            title="Explore More"
+            description="Discover all available items"
+            items={exploreItems}
+            loading={exploreLoading}
+            error={null}
+            emptyMessage=""
+            showViewAll={true}
+            viewAllText="View All"
+            viewAllHref="/browse"
+          />
+        </div>
+      )}
+
       {/* Content Area */}
-      <section style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="px-4 md:px-6 lg:px-[165px] pb-12">
-          {viewMode === 'list' ? (
-            /* List View */
-            <div>
+      {viewMode === 'list' ? (
+        <section style={{ backgroundColor: 'var(--bg-primary)' }}>
+          <div className="px-4 md:px-6 lg:px-[165px] pb-12">
+            {loading ? (
+              /* Loading State */
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                {mockItems.map((item) => (
-                  <ItemCard key={item.id} item={item} />
+                {Array(10).fill(0).map((_, i) => (
+                  <div key={i} className="aspect-[170/220] bg-gray-200 rounded-2xl animate-pulse" />
                 ))}
               </div>
-              
-              {/* Load More Button */}
-              <div className="text-center mt-12">
-                <Button variant="outlined" size="large">
-                  Load More Items
+            ) : error ? (
+              /* Error State */
+              <div className="text-center py-12">
+                <p className="text-body-large mb-4" style={{ color: 'var(--text-secondary)' }}>
+                  Unable to load items. Please try again.
+                </p>
+                <Button variant="outlined" onClick={() => window.location.reload()}>
+                  Retry
                 </Button>
               </div>
-            </div>
-          ) : (
-            /* Map View */
-            <div className="relative">
-              {/* Map Container */}
-              <div 
-                className="relative w-full h-[600px] rounded-2xl overflow-hidden"
-                style={{ backgroundColor: 'var(--bg-secondary)' }}
-              >
-                <OpenStreetMap
-                  latitude={currentLocation.coordinates.lat}
-                  longitude={currentLocation.coordinates.lng}
-                  zoom={12}
-                  className="rounded-2xl"
-                  markers={[
-                    { lat: currentLocation.coordinates.lat, lng: currentLocation.coordinates.lng, title: 'Vintage Leather Jacket' },
-                    { lat: currentLocation.coordinates.lat + 0.004, lng: currentLocation.coordinates.lng + 0.003, title: 'Wooden Coffee Table' },
-                    { lat: currentLocation.coordinates.lat - 0.0045, lng: currentLocation.coordinates.lng - 0.0067, title: 'Mountain Bike' },
-                    { lat: currentLocation.coordinates.lat + 0.0055, lng: currentLocation.coordinates.lng + 0.0083, title: 'Books Collection' },
-                    { lat: currentLocation.coordinates.lat - 0.0065, lng: currentLocation.coordinates.lng - 0.0047, title: 'Gaming Console' },
-                    { lat: currentLocation.coordinates.lat + 0.0075, lng: currentLocation.coordinates.lng + 0.0013, title: 'Plant Collection' }
-                  ]}
-                  showUserLocation={true}
-                />
-                
-                {/* Floating Location Button */}
-                <button 
-                  className="absolute bottom-16 right-16 w-10 h-10 bg-primary rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors z-10"
-                  style={{ boxShadow: '0px 16px 40px 0px rgba(23, 34, 99, 0.4)' }}
-                >
-                  <Locate className="w-5 h-5 text-white" />
-                </button>
+            ) : items.length === 0 ? (
+              /* Empty State */
+              <div className="text-center py-12">
+                <p className="text-body-large mb-2" style={{ color: 'var(--text-secondary)' }}>
+                  {searchQuery || hasActiveFilters ? 'No items match your search criteria.' : 'No items available yet.'}
+                </p>
+                {(searchQuery || hasActiveFilters) && (
+                  <Button variant="outlined" onClick={clearAllFilters}>
+                    Clear Filters
+                  </Button>
+                )}
               </div>
-            </div>
-          )}
-        </div>
-      </section>
+            ) : (
+              /* Items Grid */
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {items.map((item) => (
+                    <ItemCard key={item.id} item={item} />
+                  ))}
+                </div>
+                
+                {/* Results Info */}
+                <div className="text-center mt-8">
+                  <p className="text-body-small" style={{ color: 'var(--text-secondary)' }}>
+                    Showing {items.length} item{items.length !== 1 ? 's' : ''}
+                    {searchQuery && ` for "${searchQuery}"`}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      ) : (
+        /* Map View - Full Page */
+        <section className="relative" style={{ backgroundColor: 'var(--bg-primary)' }}>
+          {/* Map Container - Full width and height */}
+          <div 
+            className="relative w-full"
+            style={{ 
+              backgroundColor: 'var(--bg-secondary)',
+              height: 'calc(100vh - 200px)',
+              minHeight: '600px'
+            }}
+          >
+            {loading ? (
+              <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                <span className="text-gray-500">Loading map...</span>
+              </div>
+            ) : (
+              <OpenStreetMap
+                latitude={currentLocation.coordinates.lat}
+                longitude={currentLocation.coordinates.lng}
+                zoom={12}
+                className="w-full h-full"
+                markers={items
+                  .filter(item => item.location_coordinates)
+                  .map(item => ({
+                    lat: item.location_coordinates.lat || currentLocation.coordinates.lat,
+                    lng: item.location_coordinates.lng || currentLocation.coordinates.lng,
+                    title: item.title,
+                    id: item.id,
+                    imageUrl: item.images?.[0] || undefined,
+                    isFree: item.is_free
+                  }))
+                }
+                showUserLocation={true}
+              />
+            )}
+            
+            {/* Floating Location Button */}
+            <button 
+              className="absolute bottom-6 right-6 w-12 h-12 bg-primary rounded-full shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors z-10"
+              style={{ boxShadow: '0px 16px 40px 0px rgba(23, 34, 99, 0.4)' }}
+            >
+              <Locate className="w-6 h-6 text-white" />
+            </button>
+            
+            {/* Map Results Info - Floating */}
+            {!loading && (
+              <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg">
+                <p className="text-body-small" style={{ color: 'var(--text-primary)' }}>
+                  Showing {items.length} item{items.length !== 1 ? 's' : ''} on map
+                  {searchQuery && ` for "${searchQuery}"`}
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <Footer />
 

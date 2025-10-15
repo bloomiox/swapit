@@ -10,6 +10,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'default', children, ...props }, ref) => {
     const getButtonStyle = () => {
+      if (variant === 'primary') {
+        return {
+          color: '#FFFFFF'
+        }
+      }
       if (variant === 'secondary' || variant === 'outlined') {
         return {
           backgroundColor: 'var(--bg-primary)',
@@ -28,7 +33,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           
           // Variants
           {
-            'bg-primary text-general-white hover:bg-primary/90': variant === 'primary',
+            'bg-primary text-white hover:bg-primary/90': variant === 'primary',
             'border hover:opacity-80': variant === 'secondary' || variant === 'outlined',
           },
           

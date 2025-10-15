@@ -7,14 +7,28 @@ import { Button } from '@/components/ui/Button'
 interface ReviewModalProps {
   isOpen: boolean
   onClose: () => void
-  otherUser: {
-    name: string
-    initials: string
-  }
-  swappedItem: {
-    title: string
+  swapRequest: {
+    id: string
+    reviewee_id: string
+    reviewee: {
+      id: string
+      full_name: string | null
+      avatar_url: string | null
+    }
+    requested_item: {
+      id: string
+      title: string
+      images: string[]
+    }
+    offered_item: {
+      id: string
+      title: string
+      images: string[]
+    } | null
   }
   onSubmitReview: (review: {
+    swap_request_id: string
+    reviewee_id: string
     rating: number
     comment: string
   }) => void
@@ -23,27 +37,48 @@ interface ReviewModalProps {
 export function ReviewModal({ 
   isOpen, 
   onClose, 
-  otherUser, 
-  swappedItem,
+  swapRequest,
   onSubmitReview 
 }: ReviewModalProps) {
   const [rating, setRating] = useState(0)
   const [hoveredRating, setHoveredRating] = useState(0)
   const [comment, setComment] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (rating === 0) return
+    if (rating === 0 || loading) return
     
-    onSubmitReview({
-      rating,
-      comment: comment.trim()
-    })
-    
-    // Reset form
-    setRating(0)
-    setComment('')
-    onClose()
+    setLoading(true)
+    try {
+      await onSubmitReview({
+        swap_request_id: swapRequest.id,
+        reviewee_id: swapRequest.reviewee_id,
+        rating,
+        comment: comment.trim()
+      })
+      
+      // Reset form
+      setRating(0)
+      setComment('')
+      onClose()
+    } catch (error) {
+      console.error('Error submitting review:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getInitials = (name: string | null) => {
+    if (!name) return 'U'
+    return name.split(' ').map(n => n[0]).join('').toUpperCase()
+  }
+
+  const getSwappedItemTitle = () => {
+    if (swapRequest.offered_item) {
+      return `${swapRequest.requested_item.title} ↔ ${swapRequest.offered_item.title}`
+    }
+    return swapRequest.requested_item.title
   }
 
   if (!isOpen) return null
@@ -84,33 +119,41 @@ export function ReviewModal({
             className="text-body-medium"
             style={{ color: 'var(--text-secondary)' }}
           >
-            How was your swap with {otherUser.name}?
+            How was your swap with {swapRequest.reviewee.full_name || 'this user'}?
           </p>
         </div>
 
         {/* User Info */}
         <div className="flex items-center gap-3 mb-6 p-4 rounded-2xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-          <div 
-            className="w-12 h-12 rounded-full flex items-center justify-center text-body-medium font-bold"
-            style={{ 
-              backgroundColor: '#D8F7D7',
-              color: '#119C21'
-            }}
-          >
-            {otherUser.initials}
-          </div>
+          {swapRequest.reviewee.avatar_url ? (
+            <img
+              src={swapRequest.reviewee.avatar_url}
+              alt={swapRequest.reviewee.full_name || 'User'}
+              className="w-12 h-12 rounded-full object-cover"
+            />
+          ) : (
+            <div 
+              className="w-12 h-12 rounded-full flex items-center justify-center text-body-medium font-bold"
+              style={{ 
+                backgroundColor: '#D8F7D7',
+                color: '#119C21'
+              }}
+            >
+              {getInitials(swapRequest.reviewee.full_name)}
+            </div>
+          )}
           <div>
             <div 
               className="text-body-medium font-semibold"
               style={{ color: 'var(--text-primary)' }}
             >
-              {otherUser.name}
+              {swapRequest.reviewee.full_name || 'Anonymous User'}
             </div>
             <div 
               className="text-body-small"
               style={{ color: 'var(--text-secondary)' }}
             >
-              Swapped: {swappedItem.title}
+              Swapped: {getSwappedItemTitle()}
             </div>
           </div>
         </div>
@@ -191,9 +234,9 @@ export function ReviewModal({
               variant="primary" 
               size="large" 
               className="flex-1"
-              disabled={rating === 0}
+              disabled={rating === 0 || loading}
             >
-              Submit Review
+              {loading ? 'Submitting...' : 'Submit Review'}
             </Button>
           </div>
         </form>

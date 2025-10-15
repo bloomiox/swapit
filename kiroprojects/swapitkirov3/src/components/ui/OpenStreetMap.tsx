@@ -12,6 +12,9 @@ interface MapProps {
     lng: number
     title?: string
     color?: string
+    id?: string
+    imageUrl?: string
+    isFree?: boolean
   }>
   showUserLocation?: boolean
 }
@@ -45,7 +48,7 @@ export function OpenStreetMap({
           document.head.appendChild(link)
         }
 
-        // Add custom CSS to control Leaflet z-index
+        // Add custom CSS to control Leaflet z-index and marker styling
         if (!document.querySelector('#leaflet-z-index-fix')) {
           const style = document.createElement('style')
           style.id = 'leaflet-z-index-fix'
@@ -77,6 +80,21 @@ export function OpenStreetMap({
             .leaflet-control-container {
               z-index: 7 !important;
             }
+            .custom-item-marker {
+              background: transparent !important;
+              border: none !important;
+            }
+            .custom-item-marker:hover {
+              transform: scale(1.1);
+              transition: transform 0.2s ease;
+            }
+            .leaflet-popup-content-wrapper {
+              border-radius: 12px;
+              box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            }
+            .leaflet-popup-content {
+              margin: 12px 16px;
+            }
           `
           document.head.appendChild(style)
         }
@@ -95,10 +113,164 @@ export function OpenStreetMap({
 
           // Add markers
           markers.forEach(marker => {
-            const leafletMarker = L.marker([marker.lat, marker.lng])
-            if (marker.title) {
-              leafletMarker.bindPopup(marker.title)
+            let leafletMarker
+            
+            if (marker.imageUrl) {
+              // Create custom image marker with circular styling
+              const markerHtml = `
+                <div class="item-marker-container" style="
+                  position: relative;
+                  width: 60px;
+                  height: 60px;
+                  cursor: pointer;
+                  transition: transform 0.2s ease;
+                " onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
+                  <div style="
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 50%;
+                    border: 4px solid ${marker.isFree ? '#10B981' : '#3B82F6'};
+                    background: white;
+                    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+                    overflow: hidden;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    position: relative;
+                  ">
+                    <img 
+                      src="${marker.imageUrl}" 
+                      alt="${marker.title || 'Item'}"
+                      style="
+                        width: 52px;
+                        height: 52px;
+                        border-radius: 50%;
+                        object-fit: cover;
+                      "
+                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                    />
+                    <div style="
+                      display: none;
+                      width: 52px;
+                      height: 52px;
+                      border-radius: 50%;
+                      background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+                      align-items: center;
+                      justify-content: center;
+                      font-size: 24px;
+                    ">📦</div>
+                  </div>
+                  <div style="
+                    position: absolute;
+                    top: -6px;
+                    right: -6px;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    background: ${marker.isFree ? '#10B981' : '#3B82F6'};
+                    color: white;
+                    font-size: 11px;
+                    font-weight: bold;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+                    border: 2px solid white;
+                  ">
+                    ${marker.isFree ? 'D' : 'S'}
+                  </div>
+                </div>
+              `
+              
+              leafletMarker = L.marker([marker.lat, marker.lng], {
+                icon: L.divIcon({
+                  className: 'custom-item-marker',
+                  html: markerHtml,
+                  iconSize: [60, 60],
+                  iconAnchor: [30, 30],
+                  popupAnchor: [0, -30]
+                })
+              })
+            } else {
+              // Fallback to default marker
+              leafletMarker = L.marker([marker.lat, marker.lng])
             }
+            
+            if (marker.title) {
+              const popupContent = `
+                <div style="text-align: center; min-width: 180px; max-width: 220px;">
+                  ${marker.imageUrl ? `
+                    <div style="margin-bottom: 12px;">
+                      <img 
+                        src="${marker.imageUrl}" 
+                        alt="${marker.title}"
+                        style="
+                          width: 80px;
+                          height: 80px;
+                          border-radius: 12px;
+                          object-fit: cover;
+                          border: 2px solid ${marker.isFree ? '#10B981' : '#3B82F6'};
+                        "
+                      />
+                    </div>
+                  ` : ''}
+                  <div style="
+                    font-weight: bold; 
+                    margin-bottom: 8px; 
+                    font-size: 14px;
+                    line-height: 1.3;
+                    color: #1f2937;
+                  ">${marker.title}</div>
+                  <div style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 4px 12px;
+                    border-radius: 20px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    background: ${marker.isFree ? '#dcfce7' : '#dbeafe'};
+                    color: ${marker.isFree ? '#166534' : '#1e40af'};
+                    margin-bottom: 12px;
+                  ">
+                    <span style="
+                      width: 8px;
+                      height: 8px;
+                      border-radius: 50%;
+                      background: ${marker.isFree ? '#10B981' : '#3B82F6'};
+                    "></span>
+                    ${marker.isFree ? 'Free Drop' : 'For Swap'}
+                  </div>
+                  ${marker.id ? `
+                    <div>
+                      <a 
+                        href="/item/${marker.id}" 
+                        style="
+                          display: inline-block;
+                          padding: 8px 16px;
+                          background: ${marker.isFree ? '#10B981' : '#3B82F6'};
+                          color: white;
+                          text-decoration: none;
+                          border-radius: 8px;
+                          font-size: 12px;
+                          font-weight: 600;
+                          transition: opacity 0.2s ease;
+                        "
+                        onmouseover="this.style.opacity='0.9'"
+                        onmouseout="this.style.opacity='1'"
+                      >
+                        View Details →
+                      </a>
+                    </div>
+                  ` : ''}
+                </div>
+              `
+              leafletMarker.bindPopup(popupContent, {
+                maxWidth: 250,
+                className: 'custom-popup'
+              })
+            }
+            
             leafletMarker.addTo(mapInstanceRef.current)
           })
 
