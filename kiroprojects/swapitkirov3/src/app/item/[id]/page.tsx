@@ -12,6 +12,8 @@ import { SignUpModal } from '@/components/modals/SignUpModal'
 import { OnboardingModal } from '@/components/modals/OnboardingModal'
 import { SwapRequestModal } from '@/components/modals/SwapRequestModal'
 import { SwapRequestSuccessModal } from '@/components/modals/SwapRequestSuccessModal'
+import { EditItemModal } from '@/components/modals/EditItemModal'
+import { BoostItemModal } from '@/components/modals/BoostItemModal'
 import { useAuthModals } from '@/hooks/useAuthModals'
 import { 
   ArrowLeft, 
@@ -21,7 +23,11 @@ import {
   MessageCircle,
   Repeat,
   Smartphone,
-  Smile
+  Smile,
+  Edit,
+  TrendingUp,
+  MoreVertical,
+  Heart
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -30,6 +36,8 @@ const mockItem = {
   id: '1',
   title: 'Vintage Stool',
   description: 'Beautiful vintage film camera in perfect working condition. Great for photography enthusiasts!',
+  condition: 'Like New',
+  category: 'Electronics',
   isFree: false, // Set to true for free items, false for swap items
   images: [
     '/placeholder.jpg',
@@ -51,6 +59,12 @@ const mockItem = {
     rating: 4.5,
     swapCount: 24
   }
+}
+
+// Mock current user - in a real app, this would come from your auth context
+const currentUser = {
+  id: 'current-user-id',
+  name: 'John Doe' // Same as item owner for demo purposes
 }
 
 // Mock related items
@@ -90,11 +104,21 @@ export default function ItemDetailsPage() {
   const { isLoginOpen, isSignUpOpen, isOnboardingOpen, openLogin, openSignUp, openOnboarding, closeAll } = useAuthModals()
   
   // Mock authentication state - in a real app, this would come from your auth context/provider
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false)
+  const [isAuthenticated, setIsAuthenticated] = React.useState(true) // Set to true to show owner features
   
-  // Swap request modal states
+  // Modal states
   const [isSwapRequestOpen, setIsSwapRequestOpen] = React.useState(false)
   const [isSwapSuccessOpen, setIsSwapSuccessOpen] = React.useState(false)
+  const [isEditItemOpen, setIsEditItemOpen] = React.useState(false)
+  const [isBoostItemOpen, setIsBoostItemOpen] = React.useState(false)
+  const [showOwnerMenu, setShowOwnerMenu] = React.useState(false)
+  
+  // Item state
+  const [itemData, setItemData] = React.useState(mockItem)
+  const [isSaved, setIsSaved] = React.useState(false)
+  
+  // Check if current user is the item owner
+  const isOwner = currentUser.name === itemData.owner.name
   
   const handleRequestSwap = () => {
     if (!isAuthenticated) {
@@ -140,6 +164,35 @@ export default function ItemDetailsPage() {
     window.location.href = '/browse'
   }
 
+  const handleSaveItem = (updatedData: {
+    title: string
+    description: string
+    condition: string
+    category: string
+    location: string
+    isFree: boolean
+  }) => {
+    setItemData(prev => ({
+      ...prev,
+      ...updatedData
+    }))
+    console.log('Item updated:', updatedData)
+  }
+
+  const handleBoostItem = (boostData: {
+    duration: number
+    paymentMethod: string
+  }) => {
+    console.log('Item boosted:', boostData)
+    // In a real app, this would make an API call to boost the item
+  }
+
+  const handleToggleSave = () => {
+    setIsSaved(!isSaved)
+    console.log(isSaved ? 'Item removed from saved' : 'Item saved')
+    // In a real app, this would make an API call to save/unsave the item
+  }
+
   return (
     <main className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <Navbar />
@@ -156,17 +209,59 @@ export default function ItemDetailsPage() {
             Back to Browse
           </Link>
           
-          {/* Demo Auth Toggle - Remove in production */}
-          <button
-            onClick={() => setIsAuthenticated(!isAuthenticated)}
-            className="px-3 py-1 text-body-small border rounded-lg hover:opacity-80 transition-opacity"
-            style={{ 
-              borderColor: 'var(--border-color)',
-              color: 'var(--text-secondary)'
-            }}
-          >
-            Demo: {isAuthenticated ? 'Logged In' : 'Not Logged In'}
-          </button>
+          {/* Owner Actions Menu */}
+          {isOwner && (
+            <div className="relative">
+              <button
+                onClick={() => setShowOwnerMenu(!showOwnerMenu)}
+                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+              >
+                <MoreVertical className="w-5 h-5" style={{ color: 'var(--text-primary)' }} />
+              </button>
+              
+              {/* Dropdown Menu */}
+              {showOwnerMenu && (
+                <div 
+                  className="absolute right-0 top-12 w-48 py-2 rounded-xl border shadow-lg z-10"
+                  style={{ 
+                    backgroundColor: 'var(--bg-card)',
+                    borderColor: 'var(--border-color)'
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setIsEditItemOpen(true)
+                      setShowOwnerMenu(false)
+                    }}
+                    className="w-full px-4 py-2 text-left flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <Edit className="w-4 h-4" style={{ color: 'var(--text-primary)' }} />
+                    <span 
+                      className="text-body-small"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      Edit Item
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsBoostItemOpen(true)
+                      setShowOwnerMenu(false)
+                    }}
+                    className="w-full px-4 py-2 text-left flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <TrendingUp className="w-4 h-4 text-primary" />
+                    <span 
+                      className="text-body-small"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      Boost Item
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -216,12 +311,29 @@ export default function ItemDetailsPage() {
           <div className="flex-1 flex flex-col gap-4">
             {/* Item Information Card */}
             <div 
-              className="p-4 rounded-2xl border"
+              className="p-4 rounded-2xl border relative"
               style={{ 
                 backgroundColor: 'var(--bg-card)',
                 borderColor: 'var(--border-color)'
               }}
             >
+              {/* Save/Favorite Button */}
+              {!isOwner && (
+                <button
+                  onClick={handleToggleSave}
+                  className="absolute top-4 right-4 w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-gray-100"
+                  style={{ backgroundColor: 'var(--bg-primary)' }}
+                >
+                  <Heart 
+                    className={`w-5 h-5 transition-colors ${
+                      isSaved 
+                        ? 'fill-red-500 text-red-500' 
+                        : 'text-gray-400 hover:text-red-500'
+                    }`}
+                    strokeWidth={1.5}
+                  />
+                </button>
+              )}
               {/* Badges */}
               <div className="flex gap-1 mb-3">
                 <div 
@@ -262,13 +374,13 @@ export default function ItemDetailsPage() {
                   className="text-h5 mb-1"
                   style={{ color: 'var(--text-primary)' }}
                 >
-                  {mockItem.title}
+                  {itemData.title}
                 </h1>
                 <p 
                   className="text-body-small-regular"
                   style={{ color: 'var(--text-secondary)' }}
                 >
-                  {mockItem.description}
+                  {itemData.description}
                 </p>
               </div>
 
@@ -296,7 +408,7 @@ export default function ItemDetailsPage() {
 
               {/* Looking For Section / Action Button */}
               <div className="flex items-center gap-6 mt-4 pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                {!mockItem.isFree && (
+                {!itemData.isFree && (
                   <div className="flex-1">
                     <h3 
                       className="text-body-small-bold mb-2"
@@ -305,7 +417,7 @@ export default function ItemDetailsPage() {
                       Looking for
                     </h3>
                     <div className="flex flex-wrap gap-1">
-                      {mockItem.lookingFor.map((item, index) => (
+                      {itemData.lookingFor.map((item, index) => (
                         <div
                           key={index}
                           className="px-2 py-1 rounded-full text-caption-medium"
@@ -320,7 +432,7 @@ export default function ItemDetailsPage() {
                     </div>
                   </div>
                 )}
-                {mockItem.isFree && (
+                {itemData.isFree && (
                   <div className="flex-1">
                     <p 
                       className="text-body-small-regular"
@@ -330,9 +442,33 @@ export default function ItemDetailsPage() {
                     </p>
                   </div>
                 )}
-                <Button variant="primary" size="default" onClick={handleRequestSwap}>
-                  {mockItem.isFree ? 'Claim Item' : 'Request Swap'}
-                </Button>
+                {!isOwner && (
+                  <Button variant="primary" size="default" onClick={handleRequestSwap}>
+                    {itemData.isFree ? 'Claim Item' : 'Request Swap'}
+                  </Button>
+                )}
+                {isOwner && (
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outlined" 
+                      size="default" 
+                      onClick={() => setIsEditItemOpen(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Edit
+                    </Button>
+                    <Button 
+                      variant="primary" 
+                      size="default" 
+                      onClick={() => setIsBoostItemOpen(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                      Boost
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -488,9 +624,36 @@ export default function ItemDetailsPage() {
         onClose={() => setIsSwapSuccessOpen(false)}
         onViewRequests={handleViewRequests}
         onContinueBrowsing={handleContinueBrowsing}
-        itemTitle={mockItem.title}
-        isFreeItem={mockItem.isFree}
+        itemTitle={itemData.title}
+        isFreeItem={itemData.isFree}
       />
+
+      {/* Owner Modals */}
+      {isOwner && (
+        <>
+          <EditItemModal
+            isOpen={isEditItemOpen}
+            onClose={() => setIsEditItemOpen(false)}
+            currentItem={{
+              id: itemData.id,
+              title: itemData.title,
+              description: itemData.description,
+              condition: itemData.condition,
+              category: itemData.category,
+              location: itemData.location,
+              isFree: itemData.isFree,
+              image: itemData.images[0]
+            }}
+            onSaveItem={handleSaveItem}
+          />
+          <BoostItemModal
+            isOpen={isBoostItemOpen}
+            onClose={() => setIsBoostItemOpen(false)}
+            itemTitle={itemData.title}
+            onSuccess={() => console.log('Item boosted successfully!')}
+          />
+        </>
+      )}
     </main>
   )
 }

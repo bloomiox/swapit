@@ -1,17 +1,22 @@
 'use client'
 
 import * as React from 'react'
+import { useState } from 'react'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Button } from '@/components/ui/Button'
 import { ItemCard } from '@/components/ui/ItemCard'
+import { ReportUserModal } from '@/components/modals/ReportUserModal'
 import { 
   ArrowLeft, 
   Calendar, 
   MapPin, 
   Star, 
   MessageCircle,
-  ArrowRight
+  ArrowRight,
+  MoreVertical,
+  Flag,
+  UserX
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -90,6 +95,28 @@ const userItems = [
 ]
 
 export default function UserDetailsPage() {
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+
+  const handleReportUser = (report: {
+    reason: string
+    description: string
+    blockUser: boolean
+  }) => {
+    console.log('Report submitted:', report)
+    // Here you would send the report to your backend
+    if (report.blockUser) {
+      console.log('User blocked')
+      // Handle blocking logic
+    }
+  }
+
+  const handleBlockUser = () => {
+    console.log('User blocked directly')
+    // Handle blocking logic
+    setShowUserMenu(false)
+  }
+
   return (
     <main className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <Navbar />
@@ -133,14 +160,63 @@ export default function UserDetailsPage() {
                 </div>
               </div>
 
-              {/* Name */}
-              <div className="text-center mb-3">
-                <h1 
-                  className="text-h5 font-bold"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  {mockUser.name}
-                </h1>
+              {/* Name and Menu */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex-1 text-center">
+                  <h1 
+                    className="text-h5 font-bold"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    {mockUser.name}
+                  </h1>
+                </div>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+                  >
+                    <MoreVertical className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {showUserMenu && (
+                    <div 
+                      className="absolute right-0 top-10 w-48 py-2 rounded-xl border shadow-lg z-10"
+                      style={{ 
+                        backgroundColor: 'var(--bg-card)',
+                        borderColor: 'var(--border-color)'
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          setIsReportModalOpen(true)
+                          setShowUserMenu(false)
+                        }}
+                        className="w-full px-4 py-2 text-left flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                      >
+                        <Flag className="w-4 h-4 text-red-500" />
+                        <span 
+                          className="text-body-small"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          Report User
+                        </span>
+                      </button>
+                      <button
+                        onClick={handleBlockUser}
+                        className="w-full px-4 py-2 text-left flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                      >
+                        <UserX className="w-4 h-4 text-red-500" />
+                        <span 
+                          className="text-body-small"
+                          style={{ color: 'var(--text-primary)' }}
+                        >
+                          Block User
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* User Info */}
@@ -261,6 +337,17 @@ export default function UserDetailsPage() {
           </div>
         </div>
       </div>
+
+      {/* Report User Modal */}
+      <ReportUserModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        reportedUser={{
+          name: mockUser.name,
+          initials: mockUser.name.split(' ').map(n => n[0]).join('')
+        }}
+        onSubmitReport={handleReportUser}
+      />
 
       <Footer />
     </main>

@@ -5,9 +5,10 @@ import { Footer } from '@/components/layout/Footer'
 import { ItemCard } from '@/components/ui/ItemCard'
 import { Button } from '@/components/ui/Button'
 import { OpenStreetMap } from '@/components/ui/OpenStreetMap'
-import { Search, ChevronDown, List, Map, Locate, X, Check } from 'lucide-react'
+import { Search, ChevronDown, List, Map, Locate, X } from 'lucide-react'
 import { Navbar } from '@/components/layout/Navbar'
 import { LocationPicker } from '@/components/ui/LocationPicker'
+import { FilterModal } from '@/components/modals/FilterModal'
 
 // Mock data for demonstration
 const mockItems = [
@@ -67,39 +68,41 @@ const categoryData = [
 
 export default function BrowsePage() {
   const [viewMode, setViewMode] = React.useState<'list' | 'map'>('list') // Default to List view
-  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = React.useState(false)
-  const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]) // No filters by default
+  const [selectedCategories, setSelectedCategories] = React.useState<string[]>([]) // Keep for backward compatibility
   const [searchQuery, setSearchQuery] = React.useState('')
   const [currentLocation, setCurrentLocation] = React.useState({
     name: 'St. Gallen, Switzerland',
     coordinates: { lat: 47.4245, lng: 9.3767 }
   })
   const [isInitialized, setIsInitialized] = React.useState(false)
+  
+  // Filter states
+  const [activeFilterModal, setActiveFilterModal] = React.useState<'condition' | 'distance' | 'sorting' | 'type' | 'category' | null>(null)
+  const [filters, setFilters] = React.useState({
+    condition: 'all',
+    distance: 50,
+    sorting: 'newest',
+    type: 'all',
+    category: [] as string[]
+  })
 
   // Helper functions and computed values
-  const handleCategoryToggle = (categoryId: string) => {
-    if (categoryId === 'all') {
-      setSelectedCategories(selectedCategories.length === categoryData.length - 1 ? [] : categoryData.slice(1).map(c => c.id))
-    } else {
-      setSelectedCategories((prev: string[]) => 
-        prev.includes(categoryId) 
-          ? prev.filter((id: string) => id !== categoryId)
-          : [...prev, categoryId]
-      )
-    }
-  }
-
-  const resetCategories = () => {
-    setSelectedCategories([])
-  }
 
   const clearAllFilters = () => {
     setSelectedCategories([])
     setSearchQuery('')
+    setFilters({
+      condition: 'all',
+      distance: 50,
+      sorting: 'newest',
+      type: 'all',
+      category: []
+    })
     // Clear from localStorage as well
     if (typeof window !== 'undefined') {
       localStorage.removeItem('browse-categories')
       localStorage.removeItem('browse-search-query')
+      localStorage.removeItem('browse-filters')
     }
   }
 
@@ -108,6 +111,64 @@ export default function BrowsePage() {
     // Save location to localStorage
     if (typeof window !== 'undefined') {
       localStorage.setItem('browse-location', JSON.stringify(location))
+    }
+  }
+
+  const handleFilterApply = (type: 'condition' | 'distance' | 'sorting' | 'type' | 'category', value: any) => {
+    setFilters(prev => ({
+      ...prev,
+      [type]: value
+    }))
+    
+    // Also update selectedCategories for backward compatibility
+    if (type === 'category') {
+      setSelectedCategories(value)
+    }
+  }
+
+  const getFilterLabel = (type: 'condition' | 'distance' | 'sorting' | 'type' | 'category') => {
+    switch (type) {
+      case 'condition':
+        return filters.condition === 'all' ? 'Condition' : 
+               filters.condition === 'new' ? 'Like New' :
+               filters.condition === 'good' ? 'Good' :
+               filters.condition === 'fair' ? 'Fair' : 'Poor'
+      case 'distance':
+        return `${filters.distance} km`
+      case 'sorting':
+        return filters.sorting === 'newest' ? 'Newest First' :
+               filters.sorting === 'oldest' ? 'Oldest First' :
+               filters.sorting === 'distance' ? 'Distance' : 'A-Z'
+      case 'type':
+        return filters.type === 'all' ? 'All Items' :
+               filters.type === 'free' ? 'Free Only' : 'Swap Only'
+      case 'category':
+        if (!filters.category || filters.category.length === 0) return 'Category'
+        if (filters.category.length === 1) {
+          const category = categoryData.find(c => c.id === filters.category[0])
+          return category?.name || 'Category'
+        }
+        const firstCategory = categoryData.find(c => c.id === filters.category[0])
+        return `${firstCategory?.name}+${filters.category.length - 1}`
+      default:
+        return ''
+    }
+  }
+
+  const isFilterActive = (type: 'condition' | 'distance' | 'sorting' | 'type' | 'category') => {
+    switch (type) {
+      case 'condition':
+        return filters.condition !== 'all'
+      case 'distance':
+        return filters.distance !== 50
+      case 'sorting':
+        return filters.sorting !== 'newest'
+      case 'type':
+        return filters.type !== 'all'
+      case 'category':
+        return filters.category && filters.category.length > 0
+      default:
+        return false
     }
   }
 
@@ -144,6 +205,26 @@ export default function BrowsePage() {
             setCurrentLocation(location)
           }
         }
+
+        // Load filters
+        const savedFilters = localStorage.getItem('browse-filters')
+        if (savedFilters) {
+          const parsedFilters = JSON.parse(savedFilters)
+          if (parsedFilters) {
+            // Ensure all filter properties exist with defaults
+            setFilters({
+              condition: parsedFilters.condition || 'all',
+              distance: parsedFilters.distance || 50,
+              sorting: parsedFilters.sorting || 'newest',
+              type: parsedFilters.type || 'all',
+              category: parsedFilters.category || []
+            })
+            // Also update selectedCategories for backward compatibility
+            if (parsedFilters.category) {
+              setSelectedCategories(parsedFilters.category)
+            }
+          }
+        }
       } catch (error) {
         console.error('Error loading saved browse state:', error)
       }
@@ -170,22 +251,21 @@ export default function BrowsePage() {
     }
   }, [searchQuery, isInitialized])
 
-  const isAllSelected = selectedCategories.length === categoryData.length - 1
-  const isIndeterminate = selectedCategories.length > 0 && selectedCategories.length < categoryData.length - 1
-  const hasActiveFilters = selectedCategories.length > 0 || searchQuery.length > 0
-
-  // Close dropdown when clicking outside
   React.useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      if (isCategoryDropdownOpen && !target.closest('.category-dropdown')) {
-        setIsCategoryDropdownOpen(false)
-      }
+    if (isInitialized && typeof window !== 'undefined') {
+      localStorage.setItem('browse-filters', JSON.stringify(filters))
     }
+  }, [filters, isInitialized])
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isCategoryDropdownOpen])
+
+  const hasActiveFilters = searchQuery.length > 0 || 
+    filters.condition !== 'all' ||
+    filters.distance !== 50 ||
+    filters.sorting !== 'newest' ||
+    filters.type !== 'all' ||
+    (filters.category && filters.category.length > 0)
+
+
 
   return (
     <main className="min-h-screen">
@@ -260,135 +340,38 @@ export default function BrowsePage() {
                   <div className="w-px h-5" style={{ backgroundColor: 'var(--border-color)' }} />
                 </div>
               )}
-              {/* Category Filter with Dropdown */}
-              <div className="relative category-dropdown">
-                <button
-                  onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-                  className="flex items-center gap-1 px-2 py-1.5 h-8 border rounded-lg text-caption-medium hover:border-primary transition-colors"
-                  style={{ 
-                    backgroundColor: selectedCategories.length > 0 ? '#D8F7D7' : 'var(--bg-card)',
-                    borderColor: selectedCategories.length > 0 ? '#416B40' : 'var(--border-color)',
-                    color: selectedCategories.length > 0 ? '#416B40' : 'var(--text-primary)'
-                  }}
-                >
-                  {selectedCategories.length > 0 
-                    ? selectedCategories.length === 1 
-                      ? categoryData.find(c => c.id === selectedCategories[0])?.name 
-                      : `${categoryData.find(c => c.id === selectedCategories[0])?.name}+${selectedCategories.length - 1}`
-                    : 'Category'
-                  }
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-
-              {/* Category Dropdown */}
-              {isCategoryDropdownOpen && (
-                <div 
-                  className="absolute top-full left-0 mt-1 w-[390px] border rounded-3xl shadow-lg z-50"
-                  style={{ 
-                    backgroundColor: 'var(--bg-card)',
-                    borderColor: 'var(--border-color)',
-                    boxShadow: '0px 16px 40px 0px rgba(23, 34, 99, 0.4)'
-                  }}
-                >
-                  {/* Header */}
-                  <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border-color)' }}>
-                    <button
-                      onClick={() => setIsCategoryDropdownOpen(false)}
-                      className="w-6 h-6 flex items-center justify-center hover:opacity-70 transition-opacity"
-                    >
-                      <X className="w-4 h-4" style={{ color: 'var(--text-primary)' }} />
-                    </button>
-                    <h3 className="text-h6 font-bold" style={{ color: 'var(--text-primary)' }}>
-                      Category
-                    </h3>
-                    <button
-                      onClick={resetCategories}
-                      className="text-body-small-bold text-primary hover:opacity-80 transition-opacity"
-                    >
-                      Reset
-                    </button>
-                  </div>
-
-                  {/* Category List */}
-                  <div className="py-2">
-                    {categoryData.map((category, index) => (
-                      <div key={category.id}>
-                        <button
-                          onClick={() => handleCategoryToggle(category.id)}
-                          className="w-full flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors"
-                        >
-                          {/* Icon */}
-                          {category.id !== 'all' && (
-                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg">
-                              {category.icon}
-                            </div>
-                          )}
-                          
-                          {/* Text */}
-                          <div className="flex-1 text-left">
-                            <span className="text-body-medium" style={{ color: 'var(--text-primary)' }}>
-                              {category.name}
-                            </span>
-                          </div>
-
-                          {/* Checkbox */}
-                          <div className="w-5 h-5 border-2 rounded flex items-center justify-center"
-                            style={{ 
-                              borderColor: category.id === 'all' 
-                                ? (isAllSelected || isIndeterminate ? 'var(--primary)' : 'var(--text-secondary)')
-                                : (selectedCategories.includes(category.id) ? 'var(--primary)' : 'var(--text-secondary)'),
-                              backgroundColor: category.id === 'all'
-                                ? (isAllSelected || isIndeterminate ? 'var(--primary)' : 'transparent')
-                                : (selectedCategories.includes(category.id) ? 'var(--primary)' : 'transparent')
-                            }}
-                          >
-                            {category.id === 'all' ? (
-                              isIndeterminate ? (
-                                <div className="w-2 h-0.5 bg-white" />
-                              ) : isAllSelected ? (
-                                <Check className="w-3 h-3 text-white" />
-                              ) : null
-                            ) : selectedCategories.includes(category.id) ? (
-                              <Check className="w-3 h-3 text-white" />
-                            ) : null}
-                          </div>
-                        </button>
-                        
-                        {/* Divider */}
-                        {index === 0 && (
-                          <div className="mx-4 h-px" style={{ backgroundColor: 'var(--border-color)' }} />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Apply Button */}
-                  <div className="p-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                    <Button 
-                      variant="primary" 
-                      size="large" 
-                      className="w-full"
-                      onClick={() => setIsCategoryDropdownOpen(false)}
-                    >
-                      Apply
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+              {/* Category Filter Chip */}
+              <button
+                onClick={() => setActiveFilterModal('category')}
+                className="flex items-center gap-1 px-2 py-1.5 h-8 border rounded-lg text-caption-medium hover:border-primary transition-colors"
+                style={{ 
+                  backgroundColor: isFilterActive('category') ? '#D8F7D7' : 'var(--bg-card)',
+                  borderColor: isFilterActive('category') ? '#416B40' : 'var(--border-color)',
+                  color: isFilterActive('category') ? '#416B40' : 'var(--text-primary)'
+                }}
+              >
+                {getFilterLabel('category')}
+                <ChevronDown className="w-4 h-4" />
+              </button>
 
               {/* Other Filter Chips */}
-              {['Condition', 'Distance', 'Oldest First', 'Free'].map((filter) => (
+              {[
+                { key: 'condition', label: getFilterLabel('condition') },
+                { key: 'distance', label: getFilterLabel('distance') },
+                { key: 'sorting', label: getFilterLabel('sorting') },
+                { key: 'type', label: getFilterLabel('type') }
+              ].map((filter) => (
                 <button
-                  key={filter}
+                  key={filter.key}
+                  onClick={() => setActiveFilterModal(filter.key as any)}
                   className="flex items-center gap-1 px-2 py-1.5 h-8 border rounded-lg text-caption-medium hover:border-primary transition-colors"
                   style={{ 
-                    backgroundColor: 'var(--bg-card)',
-                    borderColor: 'var(--border-color)',
-                    color: 'var(--text-primary)'
+                    backgroundColor: isFilterActive(filter.key as any) ? '#D8F7D7' : 'var(--bg-card)',
+                    borderColor: isFilterActive(filter.key as any) ? '#416B40' : 'var(--border-color)',
+                    color: isFilterActive(filter.key as any) ? '#416B40' : 'var(--text-primary)'
                   }}
                 >
-                  {filter}
+                  {filter.label}
                   <ChevronDown className="w-4 h-4" />
                 </button>
               ))}
@@ -486,6 +469,17 @@ export default function BrowsePage() {
       </section>
 
       <Footer />
+
+      {/* Filter Modals */}
+      {activeFilterModal && (
+        <FilterModal
+          isOpen={true}
+          onClose={() => setActiveFilterModal(null)}
+          type={activeFilterModal}
+          currentValue={filters[activeFilterModal]}
+          onApply={(value) => handleFilterApply(activeFilterModal, value)}
+        />
+      )}
     </main>
   )
 }

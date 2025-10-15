@@ -12,10 +12,12 @@ import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { Button } from '@/components/ui/Button'
 import { ItemCard } from '@/components/ui/ItemCard'
+import { EditProfileModal } from '@/components/modals/EditProfileModal'
 
 // Mock data - in a real app, this would come from your API/database
-const mockUser = {
+const initialUserData = {
   name: 'John Doe',
+  email: 'johndoe@gmail.com',
   initials: 'JD',
   bio: 'Eco-conscious swapper. Love giving items a second life!',
   joinDate: '19 Dec 2024',
@@ -84,8 +86,23 @@ const mockSavedItems = [
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<'my-items' | 'saved-items'>('my-items')
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [userData, setUserData] = useState(initialUserData)
 
   const currentItems = activeTab === 'my-items' ? mockItems : mockSavedItems
+
+  const handleSaveProfile = (updatedData: {
+    name: string
+    bio: string
+    location: string
+  }) => {
+    setUserData(prev => ({
+      ...prev,
+      ...updatedData,
+      // Update initials when name changes
+      initials: updatedData.name.split(' ').map(n => n[0]).join('').toUpperCase()
+    }))
+  }
 
   return (
     <main className="min-h-screen px-2.5">
@@ -112,7 +129,7 @@ export default function ProfilePage() {
                 color: '#119C21'
               }}
             >
-              {mockUser.initials}
+              {userData.initials}
             </div>
             <button 
               className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center border-2"
@@ -131,13 +148,13 @@ export default function ProfilePage() {
               className="text-h5 font-bold mb-1"
               style={{ color: 'var(--text-primary)' }}
             >
-              {mockUser.name}
+              {userData.name}
             </h1>
             <p 
               className="text-body-small"
               style={{ color: 'var(--text-secondary)' }}
             >
-              {mockUser.bio}
+              {userData.bio}
             </p>
           </div>
 
@@ -153,7 +170,7 @@ export default function ProfilePage() {
                 className="text-body-small"
                 style={{ color: 'var(--text-secondary)' }}
               >
-                Joined at {mockUser.joinDate}
+                Joined at {userData.joinDate}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -166,7 +183,7 @@ export default function ProfilePage() {
                 className="text-body-small"
                 style={{ color: 'var(--text-secondary)' }}
               >
-                {mockUser.location}
+                {userData.location}
               </span>
             </div>
           </div>
@@ -178,7 +195,7 @@ export default function ProfilePage() {
                 className="text-h6 font-bold"
                 style={{ color: 'var(--text-primary)' }}
               >
-                {mockUser.stats.swaps}
+                {userData.stats.swaps}
               </div>
               <div 
                 className="text-body-small"
@@ -192,7 +209,7 @@ export default function ProfilePage() {
                 className="text-h6 font-bold"
                 style={{ color: 'var(--text-primary)' }}
               >
-                {mockUser.stats.items}
+                {userData.stats.items}
               </div>
               <div 
                 className="text-body-small"
@@ -207,7 +224,7 @@ export default function ProfilePage() {
                   className="text-h6 font-bold"
                   style={{ color: 'var(--text-primary)' }}
                 >
-                  {mockUser.stats.rating}
+                  {userData.stats.rating}
                 </span>
                 <Star 
                   className="w-4 h-4 fill-current" 
@@ -229,6 +246,7 @@ export default function ProfilePage() {
             variant="outlined" 
             size="default" 
             className="w-full flex items-center justify-center gap-2"
+            onClick={() => setIsEditModalOpen(true)}
           >
             <Edit className="w-5 h-5" strokeWidth={1.5} />
             Edit Profile
@@ -317,6 +335,20 @@ export default function ProfilePage() {
         </div>
         </div>
       </div>
+      
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        currentUser={{
+          name: userData.name,
+          email: userData.email,
+          bio: userData.bio,
+          location: userData.location
+        }}
+        onSave={handleSaveProfile}
+      />
+      
       <Footer />
     </main>
   )
