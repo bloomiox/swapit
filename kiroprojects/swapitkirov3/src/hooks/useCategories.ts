@@ -101,6 +101,7 @@ export function useCreateItem() {
     images?: string[] | null
     location_name: string
     location_coordinates?: { lat: number; lng: number }
+    looking_for?: string | null
   }) => {
     try {
       setLoading(true)
@@ -132,6 +133,7 @@ export function useCreateItem() {
         location_coordinates: itemData.location_coordinates 
           ? `POINT(${itemData.location_coordinates.lng} ${itemData.location_coordinates.lat})`
           : null,
+        looking_for: itemData.looking_for,
         user_id: user.id
       }
       

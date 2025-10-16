@@ -17,10 +17,42 @@ import {
 import { StatsCard } from '../components/StatsCard'
 
 interface AnalyticsData {
-  userGrowth: { date: string; count: number }[]
-  itemsByCategory: { category: string; count: number }[]
-  swapsByStatus: { status: string; count: number }[]
-  dailyActivity: { date: string; users: number; items: number; swaps: number }[]
+  userGrowth: { date: string; count: number; cumulative: number }[]
+  itemsByCategory: { category: string; count: number; percentage: number }[]
+  swapsByStatus: { status: string; count: number; percentage: number }[]
+  dailyActivity: { date: string; users: number; items: number; swaps: number; total_activity: number }[]
+  summaryStats: {
+    total_users: number
+    active_users: number
+    total_items: number
+    active_items: number
+    total_swaps: number
+    completed_swaps: number
+    success_rate: number
+    avg_response_time_hours: number
+    recent_signups_7d: number
+    recent_items_7d: number
+    recent_swaps_7d: number
+  }
+  performanceMetrics: {
+    platform_health: {
+      uptime_percentage: number
+      avg_response_time_ms: number
+      error_rate_percentage: number
+    }
+    user_engagement: {
+      daily_active_users: number
+      weekly_active_users: number
+      avg_items_per_user: number
+      avg_swaps_per_user: number
+    }
+    content_metrics: {
+      total_views: number
+      total_saves: number
+      avg_views_per_item: number
+      most_viewed_category: string
+    }
+  }
 }
 
 export function Analytics() {
@@ -28,7 +60,39 @@ export function Analytics() {
     userGrowth: [],
     itemsByCategory: [],
     swapsByStatus: [],
-    dailyActivity: []
+    dailyActivity: [],
+    summaryStats: {
+      total_users: 0,
+      active_users: 0,
+      total_items: 0,
+      active_items: 0,
+      total_swaps: 0,
+      completed_swaps: 0,
+      success_rate: 0,
+      avg_response_time_hours: 0,
+      recent_signups_7d: 0,
+      recent_items_7d: 0,
+      recent_swaps_7d: 0
+    },
+    performanceMetrics: {
+      platform_health: {
+        uptime_percentage: 0,
+        avg_response_time_ms: 0,
+        error_rate_percentage: 0
+      },
+      user_engagement: {
+        daily_active_users: 0,
+        weekly_active_users: 0,
+        avg_items_per_user: 0,
+        avg_swaps_per_user: 0
+      },
+      content_metrics: {
+        total_views: 0,
+        total_saves: 0,
+        avg_views_per_item: 0,
+        most_viewed_category: ''
+      }
+    }
   })
   const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d')
@@ -39,50 +103,36 @@ export function Analytics() {
 
   const fetchAnalytics = async () => {
     try {
-      // Mock analytics data - in real implementation, you'd fetch from database
-      const mockData: AnalyticsData = {
-        userGrowth: [
-          { date: '2024-10-01', count: 45 },
-          { date: '2024-10-02', count: 52 },
-          { date: '2024-10-03', count: 48 },
-          { date: '2024-10-04', count: 61 },
-          { date: '2024-10-05', count: 55 },
-          { date: '2024-10-06', count: 67 },
-          { date: '2024-10-07', count: 73 }
-        ],
-        itemsByCategory: [
-          { category: 'Electronics', count: 156 },
-          { category: 'Clothing', count: 234 },
-          { category: 'Books', count: 89 },
-          { category: 'Home & Garden', count: 123 },
-          { category: 'Sports', count: 67 }
-        ],
-        swapsByStatus: [
-          { status: 'Completed', count: 89 },
-          { status: 'Pending', count: 34 },
-          { status: 'Declined', count: 12 },
-          { status: 'Cancelled', count: 8 }
-        ],
-        dailyActivity: [
-          { date: '2024-10-01', users: 45, items: 23, swaps: 12 },
-          { date: '2024-10-02', users: 52, items: 31, swaps: 18 },
-          { date: '2024-10-03', users: 48, items: 27, swaps: 15 },
-          { date: '2024-10-04', users: 61, items: 35, swaps: 22 },
-          { date: '2024-10-05', users: 55, items: 29, swaps: 19 }
-        ]
-      }
+      setLoading(true)
       
-      setAnalytics(mockData)
+      const daysBack = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90
+
+      // Fetch comprehensive analytics
+      const { data: analyticsData, error: analyticsError } = await supabase
+        .rpc('get_comprehensive_analytics', { days_back: daysBack })
+
+      if (analyticsError) throw analyticsError
+
+      // Fetch performance metrics
+      const { data: performanceData, error: performanceError } = await supabase
+        .rpc('get_performance_metrics')
+
+      if (performanceError) throw performanceError
+
+      setAnalytics({
+        userGrowth: analyticsData.user_growth || [],
+        itemsByCategory: analyticsData.items_by_category || [],
+        swapsByStatus: analyticsData.swap_status || [],
+        dailyActivity: analyticsData.daily_activity || [],
+        summaryStats: analyticsData.summary_stats || {},
+        performanceMetrics: performanceData || {}
+      })
     } catch (error) {
       console.error('Error fetching analytics:', error)
     } finally {
       setLoading(false)
     }
   }
-
-  const totalUsers = analytics.userGrowth.reduce((sum, day) => sum + day.count, 0)
-  const totalItems = analytics.itemsByCategory.reduce((sum, cat) => sum + cat.count, 0)
-  const totalSwaps = analytics.swapsByStatus.reduce((sum, status) => sum + status.count, 0)
 
   return (
     <div className="space-y-6">
@@ -113,43 +163,43 @@ export function Analytics() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
           title="Total Users"
-          value={totalUsers}
-          subtitle="Active users"
+          value={analytics.summaryStats.total_users}
+          subtitle={`${analytics.summaryStats.active_users} active`}
           icon={Users}
-          trend="+12%"
-          trendUp={true}
+          trend={`+${analytics.summaryStats.recent_signups_7d} this week`}
+          trendUp={analytics.summaryStats.recent_signups_7d > 0}
           loading={loading}
           color="blue"
         />
         
         <StatsCard
           title="Total Items"
-          value={totalItems}
-          subtitle="Listed items"
+          value={analytics.summaryStats.total_items}
+          subtitle={`${analytics.summaryStats.active_items} available`}
           icon={Package}
-          trend="+8%"
-          trendUp={true}
+          trend={`+${analytics.summaryStats.recent_items_7d} this week`}
+          trendUp={analytics.summaryStats.recent_items_7d > 0}
           loading={loading}
           color="green"
         />
         
         <StatsCard
           title="Total Swaps"
-          value={totalSwaps}
-          subtitle="All time"
+          value={analytics.summaryStats.total_swaps}
+          subtitle={`${analytics.summaryStats.completed_swaps} completed`}
           icon={MessageSquare}
-          trend="+15%"
-          trendUp={true}
+          trend={`+${analytics.summaryStats.recent_swaps_7d} this week`}
+          trendUp={analytics.summaryStats.recent_swaps_7d > 0}
           loading={loading}
           color="purple"
         />
         
         <StatsCard
           title="Success Rate"
-          value="89%"
+          value={`${analytics.summaryStats.success_rate || 0}%`}
           subtitle="Swap completion"
           icon={TrendingUp}
-          trend="+3%"
+          trend={`${analytics.summaryStats.avg_response_time_hours || 0}h avg response`}
           trendUp={true}
           loading={loading}
           color="green"
@@ -166,24 +216,27 @@ export function Analytics() {
           </div>
           
           <div className="space-y-3">
-            {analytics.userGrowth.map((day, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {new Date(day.date).toLocaleDateString()}
-                </span>
-                <div className="flex items-center space-x-2">
-                  <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div 
-                      className="bg-blue-500 h-2 rounded-full" 
-                      style={{ width: `${(day.count / 80) * 100}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white w-8">
-                    {day.count}
+            {analytics.userGrowth.slice(-7).map((day, index) => {
+              const maxCount = Math.max(...analytics.userGrowth.map(d => d.count), 1)
+              return (
+                <div key={index} className="flex items-center justify-between">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {new Date(day.date).toLocaleDateString()}
                   </span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div 
+                        className="bg-blue-500 h-2 rounded-full" 
+                        style={{ width: `${(day.count / maxCount) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white w-8">
+                      {day.count}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -195,7 +248,7 @@ export function Analytics() {
           </div>
           
           <div className="space-y-3">
-            {analytics.itemsByCategory.map((category, index) => (
+            {analytics.itemsByCategory.slice(0, 6).map((category, index) => (
               <div key={index} className="flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   {category.category}
@@ -204,7 +257,7 @@ export function Analytics() {
                   <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div 
                       className="bg-green-500 h-2 rounded-full" 
-                      style={{ width: `${(category.count / 250) * 100}%` }}
+                      style={{ width: `${category.percentage}%` }}
                     ></div>
                   </div>
                   <span className="text-sm font-medium text-gray-900 dark:text-white w-12">
@@ -226,22 +279,23 @@ export function Analytics() {
           <div className="space-y-3">
             {analytics.swapsByStatus.map((status, index) => {
               const colors = {
-                'Completed': 'bg-green-500',
-                'Pending': 'bg-yellow-500',
-                'Declined': 'bg-red-500',
-                'Cancelled': 'bg-gray-500'
+                'completed': 'bg-green-500',
+                'pending': 'bg-yellow-500',
+                'rejected': 'bg-red-500',
+                'cancelled': 'bg-gray-500',
+                'approved': 'bg-blue-500'
               }
               
               return (
                 <div key={index} className="flex items-center justify-between">
                   <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {status.status}
+                    {status.status.charAt(0).toUpperCase() + status.status.slice(1)}
                   </span>
                   <div className="flex items-center space-x-2">
                     <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div 
-                        className={`${colors[status.status as keyof typeof colors]} h-2 rounded-full`}
-                        style={{ width: `${(status.count / 100) * 100}%` }}
+                        className={`${colors[status.status as keyof typeof colors] || 'bg-gray-500'} h-2 rounded-full`}
+                        style={{ width: `${status.percentage}%` }}
                       ></div>
                     </div>
                     <span className="text-sm font-medium text-gray-900 dark:text-white w-8">
@@ -262,7 +316,7 @@ export function Analytics() {
           </div>
           
           <div className="space-y-4">
-            {analytics.dailyActivity.map((day, index) => (
+            {analytics.dailyActivity.slice(-5).map((day, index) => (
               <div key={index} className="border-l-4 border-blue-500 pl-4">
                 <div className="text-sm font-medium text-gray-900 dark:text-white">
                   {new Date(day.date).toLocaleDateString()}
@@ -271,6 +325,7 @@ export function Analytics() {
                   <span>{day.users} users</span>
                   <span>{day.items} items</span>
                   <span>{day.swaps} swaps</span>
+                  <span className="font-medium">({day.total_activity} total)</span>
                 </div>
               </div>
             ))}
@@ -287,9 +342,11 @@ export function Analytics() {
             <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-3">
               <TrendingUp className="w-8 h-8 text-green-600 dark:text-green-400" />
             </div>
-            <h4 className="font-medium text-gray-900 dark:text-white mb-1">Growth Rate</h4>
-            <p className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">+23%</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">vs last month</p>
+            <h4 className="font-medium text-gray-900 dark:text-white mb-1">Platform Health</h4>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">
+              {analytics.performanceMetrics.platform_health?.uptime_percentage || 99.9}%
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">uptime</p>
           </div>
           
           <div className="text-center">
@@ -297,17 +354,51 @@ export function Analytics() {
               <Clock className="w-8 h-8 text-blue-600 dark:text-blue-400" />
             </div>
             <h4 className="font-medium text-gray-900 dark:text-white mb-1">Avg. Response Time</h4>
-            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">2.3h</p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+              {analytics.summaryStats.avg_response_time_hours || 0}h
+            </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">to swap requests</p>
           </div>
           
           <div className="text-center">
             <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Globe className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+              <Users className="w-8 h-8 text-purple-600 dark:text-purple-400" />
             </div>
-            <h4 className="font-medium text-gray-900 dark:text-white mb-1">Geographic Reach</h4>
-            <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">12</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">countries</p>
+            <h4 className="font-medium text-gray-900 dark:text-white mb-1">Weekly Active Users</h4>
+            <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+              {analytics.performanceMetrics.user_engagement?.weekly_active_users || 0}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">this week</p>
+          </div>
+        </div>
+        
+        {/* Additional Metrics */}
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Views</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                {analytics.performanceMetrics.content_metrics?.total_views?.toLocaleString() || 0}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Saves</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                {analytics.performanceMetrics.content_metrics?.total_saves?.toLocaleString() || 0}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Avg Items/User</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                {analytics.performanceMetrics.user_engagement?.avg_items_per_user || 0}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Top Category</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                {analytics.performanceMetrics.content_metrics?.most_viewed_category || 'N/A'}
+              </p>
+            </div>
           </div>
         </div>
       </div>

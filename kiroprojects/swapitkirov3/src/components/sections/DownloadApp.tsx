@@ -1,34 +1,42 @@
 export function DownloadApp() {
   return (
-    <section 
-      className="relative flex flex-col items-center gap-6 lg:gap-10 px-4 md:px-6 lg:px-[165px] py-section-mobile md:py-section-tablet lg:py-20 overflow-hidden bg-green-50"
+    <section
+      className="relative px-4 md:px-6 lg:px-[165px] pt-4 pb-0 md:pt-6 lg:pt-8 overflow-visible min-h-[288px] lg:min-h-[336px]"
+      style={{ backgroundColor: 'var(--bg-secondary)' }}
     >
-      <div className="flex flex-col gap-6 lg:gap-10 w-full z-10">
-        {/* Section Header */}
-        <div className="flex flex-col gap-1 text-center max-w-2xl mx-auto">
-          <h2 className="text-h2" style={{ color: 'var(--text-primary)' }}>
-            Get the SwapIt App
-          </h2>
-          <p className="text-body-large" style={{ color: 'var(--text-secondary)' }}>
-            Take SwapIt with you anywhere. Coming soon to iOS and Android.
-          </p>
+      <div className="flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16 w-full h-full">
+        {/* Content Section */}
+        <div className="flex flex-col gap-6 lg:gap-8 w-full lg:w-1/2 text-center lg:text-left z-10">
+          {/* Section Header */}
+          <div className="flex flex-col gap-4">
+            <h2 className="text-h2" style={{ color: 'var(--text-primary)' }}>
+              Get the SwapIt App
+            </h2>
+            <p className="text-body-large" style={{ color: 'var(--text-secondary)' }}>
+              Take SwapIt with you anywhere. Coming soon to iOS and Android.
+            </p>
+          </div>
+
+          {/* App Store Buttons */}
+          <div className="flex flex-col sm:flex-row items-center lg:items-start gap-3 sm:gap-4 justify-center lg:justify-start">
+            <div className="w-full sm:w-[180px] h-[52px] bg-black rounded-lg flex items-center justify-center hover:bg-gray-800 transition-colors cursor-pointer">
+              <span className="text-white text-sm">Google Play</span>
+            </div>
+            <div className="w-full sm:w-[180px] h-[52px] bg-black rounded-lg flex items-center justify-center hover:bg-gray-800 transition-colors cursor-pointer">
+              <span className="text-white text-sm">App Store</span>
+            </div>
+          </div>
         </div>
 
-        {/* App Store Buttons */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-2 justify-center">
-          <div className="w-full sm:w-[180px] h-[52px] bg-black rounded-lg flex items-center justify-center hover:bg-gray-800 transition-colors cursor-pointer">
-            <span className="text-white text-sm">Google Play</span>
+        {/* Phone Image Section */}
+        <div className="w-full lg:w-1/2 flex justify-center lg:justify-end relative">
+          <div className="w-[350px] md:w-[450px] lg:w-[550px] xl:w-[600px] h-[350px] md:h-[450px] lg:h-[550px] xl:h-[600px] -mb-16 md:-mb-20 lg:-mb-22">
+            <img
+              src="/swapitappphone.png"
+              alt="SwapIt mobile app interface showing the app's features and design"
+              className="w-full h-full object-contain"
+            />
           </div>
-          <div className="w-full sm:w-[180px] h-[52px] bg-black rounded-lg flex items-center justify-center hover:bg-gray-800 transition-colors cursor-pointer">
-            <span className="text-white text-sm">App Store</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Phone Mockup - Hidden on mobile, positioned differently on tablet/desktop */}
-      <div className="hidden lg:block absolute right-0 xl:right-[623px] -bottom-[75px] w-[400px] xl:w-[790px] h-[300px] xl:h-[592px] opacity-20 lg:opacity-100">
-        <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center">
-          <span className="text-gray-500 text-sm xl:text-base">Phone Mockup Placeholder</span>
         </div>
       </div>
     </section>

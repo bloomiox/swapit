@@ -219,6 +219,7 @@ export default function TermsPage() {
             </p>
           </section>
         </div>
+        </div>
       </div>
       
       <Footer />

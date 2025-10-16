@@ -155,7 +155,8 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
         is_free: formData.itemType === 'drop',
         images: formData.photos,
         location_name: formData.location.name,
-        location_coordinates: formData.location.coordinates
+        location_coordinates: formData.location.coordinates,
+        looking_for: formData.swapPreferences.length > 0 ? formData.swapPreferences.join(', ') : null
       })
 
       console.log('Item created successfully:', itemData)

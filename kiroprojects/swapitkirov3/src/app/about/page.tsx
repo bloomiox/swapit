@@ -92,8 +92,12 @@ export default function AboutPage() {
                 </p>
               </div>
               <div className="relative">
-                <div className="w-full h-[400px] bg-gray-200 rounded-2xl flex items-center justify-center">
-                  <span className="text-gray-500">Mission Image Placeholder</span>
+                <div className="w-full h-[400px] rounded-2xl overflow-hidden">
+                  <img
+                    src="https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&h=600&fit=crop&crop=center"
+                    alt="Hands holding a small plant growing from soil, symbolizing sustainability and circular economy"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               </div>
             </div>
@@ -193,8 +197,119 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Meet the Team Section */}
       <section style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="px-4 md:px-6 lg:px-[165px] py-16 md:py-20">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 
+                className="text-h2 mb-4"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                Meet the Team
+              </h2>
+              <p 
+                className="text-body-large max-w-2xl mx-auto"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                The passionate founders behind SwapIt who are dedicated to creating a more sustainable future.
+              </p>
+            </div>
+            
+            <div className="grid md:grid-cols-3 gap-8 lg:gap-12">
+              {/* Cem Yelcin */}
+              <div className="text-center">
+                <div className="w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden">
+                  <img
+                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face"
+                    alt="Cem Yelcin - Co-founder"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <h3 
+                  className="text-h4 mb-2"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Cem Yelcin
+                </h3>
+                <p 
+                  className="text-body-medium mb-3"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Co-founder
+                </p>
+                <p 
+                  className="text-body-small"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Passionate about sustainable technology and community building.
+                </p>
+              </div>
+
+              {/* Güngör Gücüyener - Center */}
+              <div className="text-center">
+                <div className="w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden">
+                  <img
+                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face"
+                    alt="Güngör Gücüyener - Founder & CEO"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <h3 
+                  className="text-h4 mb-2"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Güngör Gücüyener
+                </h3>
+                <p 
+                  className="text-body-medium mb-3"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Founder & CEO
+                </p>
+                <p 
+                  className="text-body-small"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Visionary leader driving the circular economy revolution through innovative solutions.
+                </p>
+              </div>
+
+              {/* Berat Sezer */}
+              <div className="text-center">
+                <div className="w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden">
+                  <img
+                    src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&h=400&fit=crop&crop=face"
+                    alt="Berat Sezer - Co-founder"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <h3 
+                  className="text-h4 mb-2"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Berat Sezer
+                </h3>
+                <p 
+                  className="text-body-medium mb-3"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Co-founder
+                </p>
+                <p 
+                  className="text-body-small"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  Expert in product development and user experience design.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section style={{ backgroundColor: 'var(--bg-secondary)' }}>
         <div className="px-4 md:px-6 lg:px-[165px] py-16 md:py-20">
           <div className="max-w-4xl mx-auto text-center">
             <h2 

@@ -1,7 +1,8 @@
-import { MapPin, Eye, Star, User, Calendar, TrendingUp } from 'lucide-react'
+import { MapPin, Eye, Star, User, Calendar, TrendingUp, Zap } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Item } from '@/hooks/useItems'
+
 
 interface ItemCardProps {
   item: Item | {
@@ -34,9 +35,12 @@ export function ItemCard({ item }: ItemCardProps) {
   const location = isRealItem ? item.location_name || 'Location not set' : item.location
   const isFree = isRealItem ? item.is_free : item.isFree
   const isBoosted = isRealItem ? item.is_boosted : false
+  const boostType = isRealItem ? item.boost_type : null
   
   // Get category name directly from the item (no need for separate lookup)
   const categoryName = isRealItem && item.category ? item.category.name : null
+
+
 
   // Format date with more detailed relative time
   const formatDate = (dateString: string) => {
@@ -94,21 +98,34 @@ export function ItemCard({ item }: ItemCardProps) {
             {/* Boost Badge - Top Left */}
             {isBoosted && (
               <div className="absolute top-3 left-3">
-                <div className="bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="text-sm font-bold">BOOSTED</span>
-                </div>
+                {boostType === 'premium' && (
+                  <div className="bg-blue-500 text-white px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                    <Star className="w-4 h-4" />
+                    <span className="text-sm font-bold">PREMIUM</span>
+                  </div>
+                )}
+                {boostType === 'featured' && (
+                  <div className="bg-green-500 text-white px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                    <TrendingUp className="w-4 h-4" />
+                    <span className="text-sm font-bold">FEATURED</span>
+                  </div>
+                )}
+                {boostType === 'urgent' && (
+                  <div className="bg-orange-500 text-white px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                    <Zap className="w-4 h-4" />
+                    <span className="text-sm font-bold">URGENT</span>
+                  </div>
+                )}
+                {!boostType && (
+                  <div className="bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                    <TrendingUp className="w-4 h-4" />
+                    <span className="text-sm font-bold">BOOSTED</span>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Condition Badge - Bottom Left */}
-            {isRealItem && item.condition && (
-              <div className="absolute bottom-3 left-3">
-                <div className={`px-3 py-1.5 rounded-full text-sm font-medium shadow-lg ${conditionColors[item.condition]}`}>
-                  {conditionLabels[item.condition]}
-                </div>
-              </div>
-            )}
+
           </div>
         </div>
 
@@ -127,12 +144,40 @@ export function ItemCard({ item }: ItemCardProps) {
             </span>
           </div>
 
-          {/* Category - Separate row for better visibility */}
-          {isRealItem && categoryName && (
+          {/* Condition and Category - Combined like in the design */}
+          {isRealItem && (
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                Category: <span style={{ color: 'var(--text-primary)' }}>{categoryName}</span>
+              <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {item.condition && conditionLabels[item.condition]}
+                {item.condition && categoryName && ' | '}
+                {categoryName}
               </span>
+            </div>
+          )}
+
+          {/* Looking for section - Item swap preferences */}
+          {isRealItem && !isFree && item.looking_for && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Looking for:</p>
+              <div className="flex gap-2 flex-wrap">
+                {item.looking_for.split(', ').slice(0, 3).map((preference, index) => (
+                  <div 
+                    key={index}
+                    className="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-primary-light dark:bg-primary/30 pl-3 pr-3"
+                  >
+                    <p className="text-primary dark:text-primary-light text-sm font-medium">
+                      {preference.trim()}
+                    </p>
+                  </div>
+                ))}
+                {item.looking_for.split(', ').length > 3 && (
+                  <div className="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-gray-100 dark:bg-gray-800 pl-3 pr-3">
+                    <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
+                      +{item.looking_for.split(', ').length - 3} more
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

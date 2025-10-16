@@ -11,7 +11,7 @@ import { useNotifications, useNotificationActions, getNotificationIcon, getNotif
 
 export default function NotificationsPage() {
   const router = useRouter()
-  const { notifications, unreadCount, loading, error } = useNotifications()
+  const { notifications, unreadCount, loading, error, refetch } = useNotifications()
   const { markAsRead, markAllAsRead, deleteNotification } = useNotificationActions()
 
   const handleNotificationClick = async (notification: any) => {
@@ -19,6 +19,8 @@ export default function NotificationsPage() {
       // Mark notification as read if it's unread
       if (!notification.is_read) {
         await markAsRead(notification.id)
+        // Refresh notifications after marking as read
+        await refetch()
       }
       
       // Navigate based on notification type
@@ -53,6 +55,8 @@ export default function NotificationsPage() {
   const handleMarkAllAsRead = async () => {
     try {
       await markAllAsRead()
+      // Refresh notifications after marking all as read
+      await refetch()
     } catch (error) {
       console.error('Error marking all as read:', error)
     }
@@ -62,6 +66,8 @@ export default function NotificationsPage() {
     event.stopPropagation()
     try {
       await deleteNotification(notificationId)
+      // Refresh notifications after deleting
+      await refetch()
     } catch (error) {
       console.error('Error deleting notification:', error)
     }

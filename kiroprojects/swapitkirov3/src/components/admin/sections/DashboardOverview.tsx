@@ -46,45 +46,20 @@ export function DashboardOverview() {
 
   const fetchDashboardStats = async () => {
     try {
-      // Fetch user stats
-      const { count: totalUsers } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
+      // Use the new database function to get all stats
+      const { data, error } = await supabase.rpc('get_admin_dashboard_stats')
 
-      const { count: activeUsers } = await supabase
-        .from('users')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true)
-
-      // Fetch item stats
-      const { count: totalItems } = await supabase
-        .from('items')
-        .select('*', { count: 'exact', head: true })
-
-      const { count: activeItems } = await supabase
-        .from('items')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_available', true)
-
-      // Fetch swap stats
-      const { count: totalSwaps } = await supabase
-        .from('swap_requests')
-        .select('*', { count: 'exact', head: true })
-
-      const { count: completedSwaps } = await supabase
-        .from('swap_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'completed')
+      if (error) throw error
 
       setStats({
-        totalUsers: totalUsers || 0,
-        activeUsers: activeUsers || 0,
-        totalItems: totalItems || 0,
-        activeItems: activeItems || 0,
-        totalSwaps: totalSwaps || 0,
-        completedSwaps: completedSwaps || 0,
-        pendingReports: 0, // Will implement when reports table exists
-        totalRevenue: 0 // Will implement when payments are integrated
+        totalUsers: data.total_users || 0,
+        activeUsers: data.active_users || 0,
+        totalItems: data.total_items || 0,
+        activeItems: data.active_items || 0,
+        totalSwaps: data.total_swaps || 0,
+        completedSwaps: data.completed_swaps || 0,
+        pendingReports: data.pending_reports || 0,
+        totalRevenue: data.total_revenue || 0
       })
     } catch (error) {
       console.error('Error fetching dashboard stats:', error)

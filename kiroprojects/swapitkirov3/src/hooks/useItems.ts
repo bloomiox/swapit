@@ -17,9 +17,11 @@ export interface Item {
   location_coordinates: any | null
   is_available: boolean
   is_boosted: boolean
+  boost_type: 'premium' | 'featured' | 'urgent' | null
   boost_expires_at: string | null
   view_count: number
   save_count: number
+  looking_for: string | null
   created_at: string
   updated_at: string
   // Joined data
@@ -66,6 +68,8 @@ export function useItems(filters?: ItemFilters) {
           user:users(id, full_name, avatar_url, rating_average, rating_count)
         `)
         .eq('is_available', true)
+        .order('is_boosted', { ascending: false })
+        .order('boost_type', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
 
       // Apply filters
@@ -133,7 +137,8 @@ export function useUserItems(userId?: string) {
         .from('items')
         .select(`
           *,
-          category:categories(id, name, description, icon)
+          category:categories(id, name, description, icon),
+          user:users(id, full_name, avatar_url, rating_average, rating_count)
         `)
         .eq('user_id', targetUserId)
         .eq('is_available', true)
@@ -292,12 +297,58 @@ export function useItemActions() {
     if (error) throw error
   }, [user])
 
-  const deleteItem = useCallback(async (itemId: string) => {
+  const deleteItem = useCallback(async (itemId: string, reason?: string) => {
     if (!user) throw new Error('User not authenticated')
+
+    // Log the deletion reason if provided
+    if (reason) {
+      try {
+        await supabase
+          .from('item_deletion_logs')
+          .insert({
+            item_id: itemId,
+            user_id: user.id,
+            reason: reason,
+            action: 'delete'
+          })
+      } catch (logError) {
+        // Don't fail deletion if logging fails
+        console.error('Failed to log deletion reason:', logError)
+      }
+    }
 
     const { error } = await supabase
       .from('items')
       .delete()
+      .eq('id', itemId)
+      .eq('user_id', user.id) // Ensure user owns the item
+
+    if (error) throw error
+  }, [user])
+
+  const deactivateItem = useCallback(async (itemId: string, reason?: string) => {
+    if (!user) throw new Error('User not authenticated')
+
+    // Log the deactivation reason if provided
+    if (reason) {
+      try {
+        await supabase
+          .from('item_deletion_logs')
+          .insert({
+            item_id: itemId,
+            user_id: user.id,
+            reason: reason,
+            action: 'deactivate'
+          })
+      } catch (logError) {
+        // Don't fail deactivation if logging fails
+        console.error('Failed to log deactivation reason:', logError)
+      }
+    }
+
+    const { error } = await supabase
+      .from('items')
+      .update({ is_available: false })
       .eq('id', itemId)
       .eq('user_id', user.id) // Ensure user owns the item
 
@@ -343,6 +394,7 @@ export function useItemActions() {
     saveItem,
     unsaveItem,
     deleteItem,
+    deactivateItem,
     updateItem,
     checkIfSaved
   }

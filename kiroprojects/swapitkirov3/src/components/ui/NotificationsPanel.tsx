@@ -23,8 +23,8 @@ export function NotificationsPanel({
   const { notifications, unreadCount, loading } = useNotifications()
   const { markAsRead, markAllAsRead } = useNotificationActions()
 
-  // Show only recent notifications in panel (last 6)
-  const recentNotifications = notifications.slice(0, 6)
+  // Show only recent notifications in panel (last 3)
+  const recentNotifications = notifications.slice(0, 3)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -251,8 +251,8 @@ export function NotificationsPanel({
             </div>
           )}
 
-          {/* View All Link */}
-          {recentNotifications.length > 0 && (
+          {/* See All Notifications Button */}
+          {notifications.length > 0 && (
             <div 
               className="mt-4 pt-4 border-t text-center"
               style={{ borderColor: 'var(--border-color)' }}
@@ -265,7 +265,7 @@ export function NotificationsPanel({
                 className="text-body-small font-medium hover:opacity-70 transition-opacity"
                 style={{ color: '#119C21' }}
               >
-                View all notifications ({notifications.length})
+                See all notifications ({notifications.length})
               </button>
             </div>
           )}

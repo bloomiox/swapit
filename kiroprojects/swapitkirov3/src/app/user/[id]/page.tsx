@@ -425,13 +425,13 @@ export default function UserDetailsPage() {
             {activeTab === 'items' ? (
               /* Items Grid */
               itemsLoading ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {Array(8).fill(0).map((_, i) => (
-                    <div key={i} className="aspect-[170/220] bg-gray-200 rounded-2xl animate-pulse" />
+                    <div key={i} className="aspect-[4/3] bg-gray-200 rounded-2xl animate-pulse" />
                   ))}
                 </div>
               ) : userItems.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {userItems.map((item) => (
                     <ItemCard key={item.id} item={item} />
                   ))}

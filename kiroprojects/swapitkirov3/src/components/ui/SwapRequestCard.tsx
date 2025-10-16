@@ -99,7 +99,10 @@ export function SwapRequestCard({
     >
       {/* User Info */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+        <div 
+          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+          onClick={() => router.push(`/user/${request.requester.id}`)}
+        >
           {request.requester.avatar_url ? (
             <img
               src={request.requester.avatar_url}
@@ -119,7 +122,7 @@ export function SwapRequestCard({
           )}
           <div>
             <h3 
-              className="text-body-normal font-medium"
+              className="text-body-normal font-medium hover:underline"
               style={{ color: 'var(--text-primary)' }}
             >
               {request.requester.full_name || 'Anonymous User'}

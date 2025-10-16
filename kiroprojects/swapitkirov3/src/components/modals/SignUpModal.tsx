@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 
 interface SignUpModalProps {
   isOpen: boolean
@@ -28,6 +29,7 @@ export function SignUpModal({ isOpen, onClose, onSwitchToLogin, onSignUpSuccess 
   })
 
   const { signUp, signInWithProvider } = useAuth()
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -119,6 +121,14 @@ export function SignUpModal({ isOpen, onClose, onSwitchToLogin, onSignUpSuccess 
     setShowEmailConfirmation(false)
     setSignupEmail('')
     setError(null)
+  }
+
+  const handleTermsClick = () => {
+    router.push('/terms')
+  }
+
+  const handlePrivacyClick = () => {
+    router.push('/privacy')
   }
 
   // Email confirmation view
@@ -328,11 +338,19 @@ export function SignUpModal({ isOpen, onClose, onSwitchToLogin, onSignUpSuccess 
               style={{ color: 'var(--text-secondary)' }}
             >
               I agree to the{' '}
-              <button type="button" className="text-primary hover:underline">
+              <button 
+                type="button" 
+                className="text-primary hover:underline"
+                onClick={handleTermsClick}
+              >
                 Terms of Service
               </button>
               {' '}and{' '}
-              <button type="button" className="text-primary hover:underline">
+              <button 
+                type="button" 
+                className="text-primary hover:underline"
+                onClick={handlePrivacyClick}
+              >
                 Privacy Policy
               </button>
             </label>

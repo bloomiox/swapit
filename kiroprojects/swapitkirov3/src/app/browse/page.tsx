@@ -295,7 +295,7 @@ export default function BrowsePage() {
 
 
   return (
-    <main className="min-h-screen">
+    <main className="min-h-screen px-2.5">
       <Navbar />
       
       {/* Search Container */}

@@ -10,33 +10,33 @@ const contactMethods = [
     icon: Mail,
     title: 'Email Us',
     description: 'Send us an email and we\'ll respond within 24 hours',
-    contact: 'hello@swapit.com',
-    action: 'mailto:hello@swapit.com'
+    contact: 'hello@swapit.ch',
+    action: 'mailto:hello@swap-it.ch'
   },
   {
     icon: Phone,
     title: 'Call Us',
     description: 'Speak directly with our support team',
-    contact: '+1 (555) 123-4567',
-    action: 'tel:+15551234567'
+    contact: '+41 43 123-4567',
+    action: 'tel:+41431234567'
   },
   {
     icon: MessageCircle,
     title: 'Live Chat',
     description: 'Chat with us in real-time for instant help',
-    contact: 'Available 9 AM - 6 PM EST',
+    contact: 'Available 9:00 - 16:00',
     action: '#'
   }
 ]
 
 const faqs = [
   {
-    question: 'How does SwapIt work?',
-    answer: 'SwapIt connects people in your community who want to exchange items. Simply browse available items, contact the owner, and arrange a swap that works for both parties.'
+    question: 'How does Swap It work?',
+    answer: 'Swap It connects people in your community who want to exchange items. Simply browse available items, contact the owner, and arrange a swap that works for both parties.'
   },
   {
-    question: 'Is SwapIt free to use?',
-    answer: 'Yes! SwapIt is completely free to use. You can browse, list items, and connect with other users without any fees.'
+    question: 'Is Swap It free to use?',
+    answer: 'Yes! Swap It is completely free to use. You can browse, list items, and connect with other users without any fees.'
   },
   {
     question: 'How do I ensure safe transactions?',
@@ -44,7 +44,7 @@ const faqs = [
   },
   {
     question: 'Can I sell items instead of swapping?',
-    answer: 'While SwapIt focuses on swapping and free exchanges, users can arrange their own terms including monetary exchanges if both parties agree.'
+    answer: 'While Swap It focuses on swapping and free exchanges, users can arrange their own terms including monetary exchanges if both parties agree.'
   }
 ]
 

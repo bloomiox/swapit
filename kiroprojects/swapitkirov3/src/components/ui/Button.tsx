@@ -2,26 +2,14 @@ import { ButtonHTMLAttributes, forwardRef } from 'react'
 import { cn } from '@/lib/utils'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outlined'
-  size?: 'default' | 'large' | 'small'
+  variant?: 'primary' | 'secondary' | 'outlined' | 'outline'
+  size?: 'default' | 'large' | 'small' | 'lg'
   children: React.ReactNode
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'default', children, ...props }, ref) => {
     const getButtonStyle = () => {
-      if (variant === 'primary') {
-        return {
-          color: '#FFFFFF'
-        }
-      }
-      if (variant === 'secondary' || variant === 'outlined') {
-        return {
-          backgroundColor: 'var(--bg-primary)',
-          borderColor: 'var(--border-color)',
-          color: 'var(--primary-color)'
-        }
-      }
       return {}
     }
 
@@ -33,15 +21,15 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           
           // Variants
           {
-            'bg-primary text-white hover:bg-primary/90': variant === 'primary',
-            'border hover:opacity-80': variant === 'secondary' || variant === 'outlined',
+            'bg-blue-600 text-white hover:bg-blue-700': variant === 'primary',
+            'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50': variant === 'secondary' || variant === 'outlined' || variant === 'outline',
           },
           
           // Sizes
           {
-            'px-3 sm:px-4 py-2.5 text-body-small-bold': size === 'default',
-            'px-4 py-3 text-body-normal-bold': size === 'large',
-            'px-3 py-2 text-body-small-bold': size === 'small',
+            'px-3 sm:px-4 py-2.5 text-sm font-medium': size === 'default',
+            'px-4 py-3 text-base font-medium': size === 'large' || size === 'lg',
+            'px-3 py-2 text-sm font-medium': size === 'small',
           },
           
           className

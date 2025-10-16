@@ -27,7 +27,7 @@ export default function AuthCallbackPage() {
           
           // Small delay to ensure the auth state is propagated
           setTimeout(() => {
-            router.push('/')
+            router.push('/browse')
           }, 500)
         } else {
           console.log('No session found, redirecting to home')

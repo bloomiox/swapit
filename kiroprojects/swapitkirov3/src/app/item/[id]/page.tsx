@@ -15,14 +15,17 @@ import { OnboardingModal } from '@/components/modals/OnboardingModal'
 import { SwapRequestModal } from '@/components/modals/SwapRequestModal'
 import { SwapRequestSuccessModal } from '@/components/modals/SwapRequestSuccessModal'
 import { EditItemModal } from '@/components/modals/EditItemModal'
-import { BoostItemModal } from '@/components/modals/BoostItemModal'
+import { BoostPaymentModal } from '@/components/modals/BoostPaymentModal'
 import { ImageGalleryModal } from '@/components/modals/ImageGalleryModal'
+import { DeleteItemModal } from '@/components/modals/DeleteItemModal'
+import { DeactivateItemModal } from '@/components/modals/DeactivateItemModal'
 import { useAuthModals } from '@/hooks/useAuthModals'
 import { useItem, useItemActions } from '@/hooks/useItems'
 import { useCategories } from '@/hooks/useCategories'
 import { useAuth } from '@/contexts/AuthContext'
 import { useChatActions } from '@/hooks/useChat'
 import { useSwapRequestActions } from '@/hooks/useSwapRequests'
+import { useUserPreferences } from '@/hooks/useUserPreferences'
 import { supabase } from '@/lib/supabase'
 import { 
   ArrowLeft, 
@@ -30,12 +33,13 @@ import {
   MapPin, 
   Star, 
   MessageCircle,
-  Repeat,
-  Smile,
   Edit,
   TrendingUp,
   MoreVertical,
-  Heart
+  Heart,
+  EyeOff,
+  Trash2,
+  Zap
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -51,6 +55,9 @@ export default function ItemDetailsPage() {
   // Auth and data hooks
   const { user } = useAuth()
   const { item, loading, error, refetch } = useItem(itemId)
+  
+  // Fetch user preferences for the item owner
+  const { preferences } = useUserPreferences(item?.user_id)
   // Related items - only load after main item is loaded
   const [relatedItems, setRelatedItems] = React.useState<any[]>([])
   const [relatedItemsLoading, setRelatedItemsLoading] = React.useState(false)
@@ -81,7 +88,7 @@ export default function ItemDetailsPage() {
         })
     }
   }, [item, loading])
-  const { saveItem, unsaveItem, checkIfSaved, updateItem } = useItemActions()
+  const { saveItem, unsaveItem, checkIfSaved, updateItem, deleteItem, deactivateItem } = useItemActions()
   const { categories } = useCategories()
   const { createOrGetConversation } = useChatActions()
   const { createSwapRequest } = useSwapRequestActions()
@@ -90,8 +97,10 @@ export default function ItemDetailsPage() {
   const [isSwapRequestOpen, setIsSwapRequestOpen] = React.useState(false)
   const [isSwapSuccessOpen, setIsSwapSuccessOpen] = React.useState(false)
   const [isEditItemOpen, setIsEditItemOpen] = React.useState(false)
-  const [isBoostItemOpen, setIsBoostItemOpen] = React.useState(false)
+  const [isBoostPaymentOpen, setIsBoostPaymentOpen] = React.useState(false)
   const [isImageGalleryOpen, setIsImageGalleryOpen] = React.useState(false)
+  const [isDeleteItemOpen, setIsDeleteItemOpen] = React.useState(false)
+  const [isDeactivateItemOpen, setIsDeactivateItemOpen] = React.useState(false)
   const [showOwnerMenu, setShowOwnerMenu] = React.useState(false)
   const [isSaved, setIsSaved] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
@@ -222,6 +231,28 @@ export default function ItemDetailsPage() {
     }
   }
 
+  const handleDeleteItem = async (reason: string) => {
+    try {
+      await deleteItem(item.id, reason)
+      // Redirect to profile after successful deletion
+      window.location.href = '/profile'
+    } catch (error) {
+      console.error('Error deleting item:', error)
+      throw error // Re-throw to show error in modal
+    }
+  }
+
+  const handleDeactivateItem = async (reason: string) => {
+    try {
+      await deactivateItem(item.id, reason)
+      // Redirect to profile after successful deactivation
+      window.location.href = '/profile'
+    } catch (error) {
+      console.error('Error deactivating item:', error)
+      throw error // Re-throw to show error in modal
+    }
+  }
+
 
 
   const handleToggleSave = async () => {
@@ -266,8 +297,8 @@ export default function ItemDetailsPage() {
     try {
       setStartingChat(true)
       const conversationId = await createOrGetConversation(item.user.id)
-      // Navigate to chat with the conversation ID
-      window.location.href = `/chat?conversation=${conversationId}`
+      // Navigate to chat with the conversation ID and item context
+      window.location.href = `/chat?conversation=${conversationId}&item=${item.id}`
     } catch (error) {
       console.error('Error starting chat:', error)
       alert('Failed to start chat. Please try again.')
@@ -345,7 +376,7 @@ export default function ItemDetailsPage() {
                   </button>
                   <button
                     onClick={() => {
-                      setIsBoostItemOpen(true)
+                      setIsBoostPaymentOpen(true)
                       setShowOwnerMenu(false)
                     }}
                     className="w-full px-4 py-2 text-left flex items-center gap-3 hover:bg-gray-50 transition-colors"
@@ -356,6 +387,39 @@ export default function ItemDetailsPage() {
                       style={{ color: 'var(--text-primary)' }}
                     >
                       Boost Item
+                    </span>
+                  </button>
+                  <div 
+                    className="my-1 border-t"
+                    style={{ borderColor: 'var(--border-color)' }}
+                  />
+                  <button
+                    onClick={() => {
+                      setIsDeactivateItemOpen(true)
+                      setShowOwnerMenu(false)
+                    }}
+                    className="w-full px-4 py-2 text-left flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <EyeOff className="w-4 h-4 text-amber-600" />
+                    <span 
+                      className="text-body-small"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      Deactivate Item
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsDeleteItemOpen(true)
+                      setShowOwnerMenu(false)
+                    }}
+                    className="w-full px-4 py-2 text-left flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                    <span 
+                      className="text-body-small text-red-500"
+                    >
+                      Delete Item
                     </span>
                   </button>
                 </div>
@@ -460,61 +524,62 @@ export default function ItemDetailsPage() {
                 </button>
               )}
               {/* Badges */}
-              <div className="flex gap-1 mb-3">
+              <div className="flex gap-2 mb-3">
                 <div 
-                  className="flex items-center gap-1 px-2 py-1 rounded-full text-caption-medium"
-                  style={{ 
-                    backgroundColor: item.is_free ? '#D8F7D7' : '#E9F1FD',
-                    color: item.is_free ? '#416B40' : 'var(--text-primary)'
-                  }}
+                  className={`px-3 py-1.5 rounded-full font-bold text-sm shadow-lg ${
+                    item.is_free 
+                      ? 'bg-green-500 text-white' // Green for Drop
+                      : 'bg-blue-500 text-white'  // Blue for Swap
+                  }`}
                 >
-                  <Repeat className="w-3 h-3" />
-                  {item.is_free ? 'Free' : 'For Swap'}
+                  {item.is_free ? 'DROP' : 'SWAP'}
                 </div>
                 {item.is_boosted && (
-                  <div 
-                    className="flex items-center gap-1 px-2 py-1 rounded-full text-caption-medium"
-                    style={{ 
-                      backgroundColor: '#FFF3CD',
-                      color: '#856404'
-                    }}
-                  >
-                    <TrendingUp className="w-3 h-3" />
-                    Boosted
-                  </div>
+                  <>
+                    {item.boost_type === 'premium' && (
+                      <div className="bg-blue-500 text-white px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                        <Star className="w-4 h-4" />
+                        <span className="text-sm font-bold">PREMIUM</span>
+                      </div>
+                    )}
+                    {item.boost_type === 'featured' && (
+                      <div className="bg-green-500 text-white px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                        <TrendingUp className="w-4 h-4" />
+                        <span className="text-sm font-bold">FEATURED</span>
+                      </div>
+                    )}
+                    {item.boost_type === 'urgent' && (
+                      <div className="bg-orange-500 text-white px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                        <Zap className="w-4 h-4" />
+                        <span className="text-sm font-bold">URGENT</span>
+                      </div>
+                    )}
+                    {!item.boost_type && (
+                      <div className="bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                        <TrendingUp className="w-4 h-4" />
+                        <span className="text-sm font-bold">BOOSTED</span>
+                      </div>
+                    )}
+                  </>
                 )}
-                {item.category && (
-                  <div 
-                    className="flex items-center gap-1 px-2 py-1 rounded-full text-caption-medium"
-                    style={{ 
-                      backgroundColor: '#F9F9F9',
-                      color: 'var(--text-primary)'
-                    }}
-                  >
-                    <span className="text-xs">{item.category.icon || '📦'}</span>
-                    {item.category.name}
-                  </div>
-                )}
-                <div 
-                  className="flex items-center gap-1 px-2 py-1 rounded-full text-caption-medium"
-                  style={{ 
-                    backgroundColor: '#D8F7D7',
-                    color: '#416B40'
-                  }}
-                >
-                  <Smile className="w-3 h-3" />
-                  {formatCondition(item.condition)}
-                </div>
               </div>
 
               {/* Title and Description */}
               <div className="mb-3">
                 <h1 
-                  className="text-h5 mb-1"
+                  className="text-h5 mb-2"
                   style={{ color: 'var(--text-primary)' }}
                 >
                   {item.title}
                 </h1>
+                {/* Condition and Category - Combined like in ItemCard */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {formatCondition(item.condition)}
+                    {item.category && ' | '}
+                    {item.category?.name}
+                  </span>
+                </div>
                 <p 
                   className="text-body-small-regular"
                   style={{ color: 'var(--text-secondary)' }}
@@ -555,17 +620,39 @@ export default function ItemDetailsPage() {
                     >
                       Looking for
                     </h3>
-                    <div className="flex flex-wrap gap-1">
-                      <div
-                        className="px-2 py-1 rounded-full text-caption-medium"
-                        style={{ 
-                          backgroundColor: '#F9F9F9',
-                          color: 'var(--text-primary)'
-                        }}
-                      >
-                        Open to offers
+                    {item.looking_for ? (
+                      <div className="flex flex-wrap gap-2">
+                        {item.looking_for.split(', ').slice(0, 4).map((preference, index) => (
+                          <div 
+                            key={index}
+                            className="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-primary-light dark:bg-primary/30 pl-3 pr-3"
+                          >
+                            <p className="text-primary dark:text-primary-light text-sm font-medium">
+                              {preference.trim()}
+                            </p>
+                          </div>
+                        ))}
+                        {item.looking_for.split(', ').length > 4 && (
+                          <div className="flex h-8 shrink-0 items-center justify-center gap-x-2 rounded-lg bg-gray-100 dark:bg-gray-800 pl-3 pr-3">
+                            <p className="text-gray-600 dark:text-gray-400 text-sm font-medium">
+                              +{item.looking_for.split(', ').length - 4} more
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        <div
+                          className="px-2 py-1 rounded-full text-caption-medium"
+                          style={{ 
+                            backgroundColor: '#F9F9F9',
+                            color: 'var(--text-primary)'
+                          }}
+                        >
+                          Open to offers
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
                 {item.is_free && (
@@ -597,7 +684,7 @@ export default function ItemDetailsPage() {
                     <Button 
                       variant="primary" 
                       size="default" 
-                      onClick={() => setIsBoostItemOpen(true)}
+                      onClick={() => setIsBoostPaymentOpen(true)}
                       className="flex items-center gap-2"
                     >
                       <TrendingUp className="w-4 h-4" />
@@ -643,7 +730,7 @@ export default function ItemDetailsPage() {
                 </div>
               </div>
               
-              {item.location_coordinates ? (
+              {item.location_coordinates && item.location_coordinates.lat && item.location_coordinates.lng ? (
                 <OpenStreetMap
                   latitude={item.location_coordinates.lat}
                   longitude={item.location_coordinates.lng}
@@ -659,15 +746,41 @@ export default function ItemDetailsPage() {
                       isFree: item.is_free
                     }
                   ]}
-                  showUserLocation={true}
+                  showUserLocation={false}
                 />
               ) : (
-                <div className="w-full h-full bg-gray-200 flex flex-col items-center justify-center">
-                  <MapPin className="w-12 h-12 text-gray-400 mb-2" />
-                  <span className="text-gray-500 text-center">
-                    Location not available<br />
-                    <span className="text-sm">Contact owner for pickup details</span>
-                  </span>
+                <div 
+                  className="w-full h-full flex flex-col items-center justify-center"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                  }}
+                >
+                  <div className="text-center">
+                    <div 
+                      className="w-16 h-16 rounded-full flex items-center justify-center mb-4 mx-auto"
+                      style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}
+                    >
+                      <MapPin className="w-8 h-8 text-blue-500" />
+                    </div>
+                    <h3 
+                      className="text-lg font-semibold mb-2"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      Location Details
+                    </h3>
+                    <p 
+                      className="text-sm mb-1"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      {item.location_name || 'Location not specified'}
+                    </p>
+                    <p 
+                      className="text-xs"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Contact the owner for exact pickup details
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -853,11 +966,27 @@ export default function ItemDetailsPage() {
             }}
             onSaveItem={handleSaveItem}
           />
-          <BoostItemModal
-            isOpen={isBoostItemOpen}
-            onClose={() => setIsBoostItemOpen(false)}
+          <BoostPaymentModal
+            isOpen={isBoostPaymentOpen}
+            onClose={() => setIsBoostPaymentOpen(false)}
+            itemId={item.id}
             itemTitle={item.title}
-            onSuccess={() => console.log('Item boosted successfully!')}
+            onSuccess={() => {
+              console.log('Item boosted successfully!')
+              refetch() // Refresh item data to show boost status
+            }}
+          />
+          <DeactivateItemModal
+            isOpen={isDeactivateItemOpen}
+            onClose={() => setIsDeactivateItemOpen(false)}
+            itemTitle={item.title}
+            onConfirmDeactivate={handleDeactivateItem}
+          />
+          <DeleteItemModal
+            isOpen={isDeleteItemOpen}
+            onClose={() => setIsDeleteItemOpen(false)}
+            itemTitle={item.title}
+            onConfirmDelete={handleDeleteItem}
           />
         </>
       )}

@@ -425,13 +425,13 @@ export default function ProfilePage() {
 
           {/* Items Grid */}
           {currentLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 pb-6">
-              {Array(8).fill(0).map((_, i) => (
-                <div key={i} className="aspect-[170/220] bg-gray-200 rounded-2xl animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 pb-6">
+              {Array(6).fill(0).map((_, i) => (
+                <div key={i} className="aspect-[4/3] bg-gray-200 rounded-2xl animate-pulse" />
               ))}
             </div>
           ) : currentItems.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 pb-6">
               {currentItems.map((item) => (
                 <ItemCard
                   key={item.id}

@@ -81,7 +81,7 @@ export type Database = {
           location: string | null
           images: string[] | null
           type: 'swap' | 'drop'
-          status: 'available' | 'pending' | 'swapped' | 'dropped' | 'claimed'
+          is_available: boolean
           is_boosted: boolean
           boost_expires_at: string | null
           created_at: string
@@ -99,7 +99,7 @@ export type Database = {
           location?: string | null
           images?: string[] | null
           type: 'swap' | 'drop'
-          status?: 'available' | 'pending' | 'swapped' | 'dropped' | 'claimed'
+          is_available?: boolean
           is_boosted?: boolean
           boost_expires_at?: string | null
           created_at?: string
@@ -117,7 +117,7 @@ export type Database = {
           location?: string | null
           images?: string[] | null
           type?: 'swap' | 'drop'
-          status?: 'available' | 'pending' | 'swapped' | 'dropped' | 'claimed'
+          is_available?: boolean
           is_boosted?: boolean
           boost_expires_at?: string | null
           created_at?: string

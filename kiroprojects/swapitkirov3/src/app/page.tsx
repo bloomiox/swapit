@@ -27,6 +27,9 @@ export default function HomePage() {
       setShowOnboarding(true)
       // Clean up the URL
       router.replace('/', undefined)
+    } else if (user && !loading && !shouldShowOnboarding) {
+      // Redirect authenticated users to Browse page by default
+      router.push('/browse')
     }
   }, [searchParams, user, loading, router])
 

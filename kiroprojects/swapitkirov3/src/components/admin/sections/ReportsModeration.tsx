@@ -19,7 +19,7 @@ import { formatDistanceToNow } from 'date-fns'
 interface ReportData {
   id: string
   reporter_id: string
-  reported_user_id?: string
+  reported_id?: string
   reported_item_id?: string
   report_type: 'user' | 'item' | 'message'
   category: string
@@ -40,54 +40,39 @@ interface ReportData {
   }
 }
 
-// Mock data for demonstration since reports table doesn't exist yet
-const mockReports: ReportData[] = [
-  {
-    id: '1',
-    reporter_id: 'user1',
-    reported_user_id: 'user2',
-    report_type: 'user',
-    category: 'Inappropriate behavior',
-    description: 'User was rude during swap negotiation',
-    status: 'pending',
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    reporter: { full_name: 'John Doe', email: 'john@example.com' },
-    reported_user: { full_name: 'Jane Smith', email: 'jane@example.com' }
-  },
-  {
-    id: '2',
-    reporter_id: 'user3',
-    reported_item_id: 'item1',
-    report_type: 'item',
-    category: 'Inappropriate content',
-    description: 'Item contains inappropriate images',
-    status: 'pending',
-    created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    reporter: { full_name: 'Mike Johnson', email: 'mike@example.com' },
-    reported_item: { title: 'Vintage Camera' }
-  },
-  {
-    id: '3',
-    reporter_id: 'user4',
-    reported_user_id: 'user5',
-    report_type: 'user',
-    category: 'Fraud',
-    description: 'User never showed up for agreed swap',
-    status: 'reviewed',
-    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    reporter: { full_name: 'Sarah Wilson', email: 'sarah@example.com' },
-    reported_user: { full_name: 'Bob Brown', email: 'bob@example.com' }
-  }
-]
-
 export function ReportsModeration() {
-  const [reports, setReports] = useState<ReportData[]>(mockReports)
-  const [loading, setLoading] = useState(false)
+  const [reports, setReports] = useState<ReportData[]>([])
+  const [loading, setLoading] = useState(true)
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'reviewed' | 'resolved' | 'dismissed'>('all')
   const [filterType, setFilterType] = useState<'all' | 'user' | 'item' | 'message'>('all')
+
+  useEffect(() => {
+    fetchReports()
+  }, [])
+
+  const fetchReports = async () => {
+    try {
+      setLoading(true)
+      
+      const { data, error } = await supabase
+        .from('user_reports')
+        .select(`
+          *,
+          reporter:users!user_reports_reporter_id_fkey(full_name, email),
+          reported_user:users!user_reports_reported_id_fkey(full_name, email),
+          reported_item:items!user_reports_reported_item_id_fkey(title)
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      setReports(data || [])
+    } catch (error) {
+      console.error('Error fetching reports:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredReports = reports.filter(report => {
     if (filterStatus !== 'all' && report.status !== filterStatus) return false
@@ -97,14 +82,23 @@ export function ReportsModeration() {
 
   const handleReportAction = async (action: string, reportId: string) => {
     try {
-      // Update report status
+      const { error } = await supabase
+        .from('user_reports')
+        .update({ 
+          status: action,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reportId)
+
+      if (error) throw error
+
+      // Update local state
       setReports(prev => prev.map(report => 
         report.id === reportId 
           ? { ...report, status: action as any, updated_at: new Date().toISOString() }
           : report
       ))
       
-      // In a real implementation, you would update the database here
       console.log(`Report ${reportId} marked as ${action}`)
     } catch (error) {
       console.error('Error updating report:', error)
@@ -295,6 +289,9 @@ export function ReportsModeration() {
                         )}
                         {report.report_type === 'item' && report.reported_item && (
                           <span>Item: {report.reported_item.title}</span>
+                        )}
+                        {report.report_type === 'message' && (
+                          <span>Message in conversation</span>
                         )}
                       </p>
                     </div>

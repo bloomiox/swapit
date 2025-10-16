@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import { 
   CreditCard, 
   TrendingUp, 
@@ -13,80 +14,92 @@ import {
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
-// Mock data for payments and boosts
-const mockPayments = [
-  {
-    id: '1',
-    user_email: 'john@example.com',
-    amount: 4.99,
-    type: 'boost',
-    status: 'completed',
-    item_title: 'Vintage Camera',
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    payment_method: 'Credit Card'
-  },
-  {
-    id: '2',
-    user_email: 'jane@example.com',
-    amount: 9.99,
-    type: 'premium',
-    status: 'completed',
-    created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    payment_method: 'PayPal'
-  },
-  {
-    id: '3',
-    user_email: 'mike@example.com',
-    amount: 4.99,
-    type: 'boost',
-    status: 'failed',
-    item_title: 'Gaming Console',
-    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    payment_method: 'Credit Card'
+interface PaymentData {
+  id: string
+  user_id: string
+  amount: number
+  currency: string
+  description: string
+  status: string
+  created_at: string
+  user?: {
+    email: string
+    full_name: string | null
   }
-]
+  item?: {
+    title: string
+  }
+}
 
-const mockBoosts = [
-  {
-    id: '1',
-    item_title: 'Vintage Camera',
-    user_email: 'john@example.com',
-    amount_paid: 4.99,
-    boost_duration: 7,
-    started_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    expires_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
-    status: 'active',
-    views_gained: 156,
-    saves_gained: 23
-  },
-  {
-    id: '2',
-    item_title: 'Designer Handbag',
-    user_email: 'sarah@example.com',
-    amount_paid: 4.99,
-    boost_duration: 7,
-    started_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    expires_at: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-    status: 'active',
-    views_gained: 89,
-    saves_gained: 12
-  },
-  {
-    id: '3',
-    item_title: 'Bicycle',
-    user_email: 'tom@example.com',
-    amount_paid: 4.99,
-    boost_duration: 7,
-    started_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    expires_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    status: 'expired',
-    views_gained: 234,
-    saves_gained: 45
+interface BoostData {
+  id: string
+  item_id: string
+  boost_type: string
+  duration_days: number
+  started_at: string
+  expires_at: string
+  is_active: boolean
+  created_at: string
+  item?: {
+    title: string
+    user_id: string
+    view_count: number
+    save_count: number
   }
-]
+  user?: {
+    email: string
+    full_name: string | null
+  }
+}
 
 export function PaymentsBoosts() {
   const [activeTab, setActiveTab] = useState<'payments' | 'boosts'>('payments')
+  const [payments, setPayments] = useState<PaymentData[]>([])
+  const [boosts, setBoosts] = useState<BoostData[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchPaymentsAndBoosts()
+  }, [])
+
+  const fetchPaymentsAndBoosts = async () => {
+    try {
+      setLoading(true)
+
+      // Fetch payments with user data
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          user:users!transactions_user_id_fkey(email, full_name),
+          item:items!transactions_item_id_fkey(title)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (paymentsError) throw paymentsError
+
+      // Fetch boosts with item and user data
+      const { data: boostsData, error: boostsError } = await supabase
+        .from('boosts')
+        .select(`
+          *,
+          item:items!boosts_item_id_fkey(title, user_id, view_count, save_count),
+          user:users!items_user_id_fkey(email, full_name)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (boostsError) throw boostsError
+
+      setPayments(paymentsData || [])
+      setBoosts(boostsData || [])
+    } catch (error) {
+      console.error('Error fetching payments and boosts:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getPaymentStatusColor = (status: string) => {
     switch (status) {
@@ -114,12 +127,12 @@ export function PaymentsBoosts() {
     }
   }
 
-  const totalRevenue = mockPayments
+  const totalRevenue = payments
     .filter(p => p.status === 'completed')
     .reduce((sum, p) => sum + p.amount, 0)
 
-  const activeBoosts = mockBoosts.filter(b => b.status === 'active').length
-  const totalBoosts = mockBoosts.length
+  const activeBoosts = boosts.filter(b => b.is_active && new Date(b.expires_at) > new Date()).length
+  const totalBoosts = boosts.length
 
   return (
     <div className="space-y-6">
@@ -170,7 +183,7 @@ export function PaymentsBoosts() {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Transactions</p>
               <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                {mockPayments.length}
+                {payments.length}
               </p>
             </div>
           </div>
@@ -242,39 +255,64 @@ export function PaymentsBoosts() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {mockPayments.map((payment) => (
-                    <tr key={payment.id}>
-                      <td className="py-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {payment.type === 'boost' ? 'Item Boost' : 'Premium Subscription'}
+                  {loading ? (
+                    Array(5).fill(0).map((_, i) => (
+                      <tr key={i}>
+                        <td className="py-4">
+                          <div className="animate-pulse">
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                           </div>
-                          {payment.item_title && (
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              {payment.item_title}
+                        </td>
+                        <td className="py-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+                        </td>
+                        <td className="py-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
+                        </td>
+                        <td className="py-4">
+                          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 animate-pulse"></div>
+                        </td>
+                        <td className="py-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    payments.map((payment) => (
+                      <tr key={payment.id}>
+                        <td className="py-4">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {payment.description}
                             </div>
-                          )}
-                          <div className="text-xs text-gray-400 dark:text-gray-500">
-                            {payment.payment_method}
+                            {payment.item?.title && (
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                                {payment.item.title}
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-400 dark:text-gray-500">
+                              {payment.currency}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-4 text-sm text-gray-900 dark:text-white">
-                        {payment.user_email}
-                      </td>
-                      <td className="py-4 text-sm font-medium text-gray-900 dark:text-white">
-                        ${payment.amount.toFixed(2)}
-                      </td>
-                      <td className="py-4">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPaymentStatusColor(payment.status)}`}>
-                          {payment.status}
-                        </span>
-                      </td>
-                      <td className="py-4 text-sm text-gray-500 dark:text-gray-400">
-                        {formatDistanceToNow(new Date(payment.created_at), { addSuffix: true })}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-4 text-sm text-gray-900 dark:text-white">
+                          {payment.user?.full_name || payment.user?.email}
+                        </td>
+                        <td className="py-4 text-sm font-medium text-gray-900 dark:text-white">
+                          {payment.amount.toFixed(2)} {payment.currency}
+                        </td>
+                        <td className="py-4">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPaymentStatusColor(payment.status)}`}>
+                            {payment.status}
+                          </span>
+                        </td>
+                        <td className="py-4 text-sm text-gray-500 dark:text-gray-400">
+                          {formatDistanceToNow(new Date(payment.created_at), { addSuffix: true })}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -303,42 +341,70 @@ export function PaymentsBoosts() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {mockBoosts.map((boost) => (
-                    <tr key={boost.id}>
-                      <td className="py-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {boost.item_title}
+                  {loading ? (
+                    Array(5).fill(0).map((_, i) => (
+                      <tr key={i}>
+                        <td className="py-4">
+                          <div className="animate-pulse">
+                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            ${boost.amount_paid} • {boost.boost_duration} days
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 text-sm text-gray-900 dark:text-white">
-                        {boost.user_email}
-                      </td>
-                      <td className="py-4">
-                        <div className="text-sm text-gray-900 dark:text-white">
-                          <div className="flex items-center space-x-4">
-                            <span>{boost.views_gained} views</span>
-                            <span>{boost.saves_gained} saves</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBoostStatusColor(boost.status)}`}>
-                          {boost.status}
-                        </span>
-                      </td>
-                      <td className="py-4 text-sm text-gray-500 dark:text-gray-400">
-                        {boost.status === 'active' 
-                          ? formatDistanceToNow(new Date(boost.expires_at), { addSuffix: true })
-                          : 'Expired'
-                        }
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+                        </td>
+                        <td className="py-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
+                        </td>
+                        <td className="py-4">
+                          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20 animate-pulse"></div>
+                        </td>
+                        <td className="py-4">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    boosts.map((boost) => {
+                      const isActive = boost.is_active && new Date(boost.expires_at) > new Date()
+                      return (
+                        <tr key={boost.id}>
+                          <td className="py-4">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {boost.item?.title || 'Unknown Item'}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                                {boost.boost_type} • {boost.duration_days} days
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4 text-sm text-gray-900 dark:text-white">
+                            {boost.user?.full_name || boost.user?.email || 'Unknown User'}
+                          </td>
+                          <td className="py-4">
+                            <div className="text-sm text-gray-900 dark:text-white">
+                              <div className="flex items-center space-x-4">
+                                <span>{boost.item?.view_count || 0} views</span>
+                                <span>{boost.item?.save_count || 0} saves</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-4">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getBoostStatusColor(isActive ? 'active' : 'expired')}`}>
+                              {isActive ? 'active' : 'expired'}
+                            </span>
+                          </td>
+                          <td className="py-4 text-sm text-gray-500 dark:text-gray-400">
+                            {isActive 
+                              ? formatDistanceToNow(new Date(boost.expires_at), { addSuffix: true })
+                              : 'Expired'
+                            }
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
                 </tbody>
               </table>
             </div>

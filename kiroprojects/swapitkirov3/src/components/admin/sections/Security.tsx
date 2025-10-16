@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 import { 
   Shield, 
   AlertTriangle, 
@@ -16,68 +17,122 @@ import {
   Clock
 } from 'lucide-react'
 import { StatsCard } from '../components/StatsCard'
+import { formatDistanceToNow } from 'date-fns'
 
 interface SecurityEvent {
   id: string
-  type: 'login_attempt' | 'suspicious_activity' | 'data_breach' | 'policy_violation'
+  event_type: string
   severity: 'low' | 'medium' | 'high' | 'critical'
+  title: string
+  description: string | null
+  user_email: string | null
+  ip_address: string | null
+  created_at: string
+  status: 'active' | 'resolved' | 'investigating' | 'dismissed'
+}
+
+interface SecurityStats {
+  active_threats: number
+  investigating: number
+  resolved_today: number
+  critical_events: number
+  failed_logins_24h: number
+  suspicious_activities_7d: number
+  blocked_ips: number
+  admin_accesses_today: number
+}
+
+interface SecuritySettings {
+  setting_key: string
+  setting_value: any
   description: string
-  user_email?: string
-  ip_address?: string
-  timestamp: string
-  status: 'active' | 'resolved' | 'investigating'
+  is_active: boolean
 }
 
 export function Security() {
   const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([])
+  const [securityStats, setSecurityStats] = useState<SecurityStats>({
+    active_threats: 0,
+    investigating: 0,
+    resolved_today: 0,
+    critical_events: 0,
+    failed_logins_24h: 0,
+    suspicious_activities_7d: 0,
+    blocked_ips: 0,
+    admin_accesses_today: 0
+  })
+  const [securitySettings, setSecuritySettings] = useState<SecuritySettings[]>([])
   const [loading, setLoading] = useState(true)
   const [filterSeverity, setFilterSeverity] = useState<'all' | 'low' | 'medium' | 'high' | 'critical'>('all')
 
   useEffect(() => {
-    fetchSecurityEvents()
-  }, [])
+    fetchSecurityData()
+  }, [filterSeverity])
 
-  const fetchSecurityEvents = async () => {
-    // Mock security events data
-    const mockEvents: SecurityEvent[] = [
-      {
-        id: '1',
-        type: 'login_attempt',
-        severity: 'medium',
-        description: 'Multiple failed login attempts detected',
-        user_email: 'suspicious@example.com',
-        ip_address: '192.168.1.100',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        status: 'active'
-      },
-      {
-        id: '2',
-        type: 'suspicious_activity',
-        severity: 'high',
-        description: 'Unusual item posting pattern detected',
-        user_email: 'user@example.com',
-        ip_address: '10.0.0.50',
-        timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-        status: 'investigating'
-      },
-      {
-        id: '3',
-        type: 'policy_violation',
-        severity: 'low',
-        description: 'User reported for inappropriate content',
-        user_email: 'reported@example.com',
-        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        status: 'resolved'
-      }
-    ]
-    
-    setSecurityEvents(mockEvents)
-    setLoading(false)
+  const fetchSecurityData = async () => {
+    try {
+      setLoading(true)
+
+      // Fetch security dashboard stats
+      const { data: statsData, error: statsError } = await supabase
+        .rpc('get_security_dashboard_stats')
+
+      if (statsError) throw statsError
+      setSecurityStats(statsData || {})
+
+      // Fetch recent security events
+      const { data: eventsData, error: eventsError } = await supabase
+        .rpc('get_recent_security_events', { 
+          p_limit: 50, 
+          p_severity: filterSeverity === 'all' ? 'all' : filterSeverity 
+        })
+
+      if (eventsError) throw eventsError
+      setSecurityEvents(eventsData || [])
+
+      // Fetch security settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('security_settings')
+        .select('*')
+        .eq('is_active', true)
+        .order('setting_key')
+
+      if (settingsError) throw settingsError
+      setSecuritySettings(settingsData || [])
+
+    } catch (error) {
+      console.error('Error fetching security data:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const filteredEvents = securityEvents.filter(event => 
-    filterSeverity === 'all' || event.severity === filterSeverity
-  )
+  const handleEventAction = async (eventId: string, action: 'investigate' | 'resolve' | 'dismiss') => {
+    try {
+      const status = action === 'investigate' ? 'investigating' : 
+                    action === 'resolve' ? 'resolved' : 'dismissed'
+      
+      const { error } = await supabase
+        .from('security_events')
+        .update({ 
+          status,
+          resolved_at: action === 'resolve' ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', eventId)
+
+      if (error) throw error
+
+      // Update local state
+      setSecurityEvents(prev => prev.map(event => 
+        event.id === eventId 
+          ? { ...event, status: status as any }
+          : event
+      ))
+    } catch (error) {
+      console.error('Error updating security event:', error)
+    }
+  }
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -110,6 +165,7 @@ export function Security() {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'login_attempt':
+      case 'failed_login':
         return <Key className="w-4 h-4" />
       case 'suspicious_activity':
         return <AlertTriangle className="w-4 h-4" />
@@ -117,16 +173,26 @@ export function Security() {
         return <Shield className="w-4 h-4" />
       case 'policy_violation':
         return <FileText className="w-4 h-4" />
+      case 'admin_access':
+        return <Eye className="w-4 h-4" />
+      case 'account_lockout':
+        return <UserX className="w-4 h-4" />
       default:
         return <Activity className="w-4 h-4" />
     }
   }
 
-  const stats = {
-    activeThreats: securityEvents.filter(e => e.status === 'active').length,
-    resolvedThreats: securityEvents.filter(e => e.status === 'resolved').length,
-    criticalEvents: securityEvents.filter(e => e.severity === 'critical').length,
-    investigating: securityEvents.filter(e => e.status === 'investigating').length
+  const getSecuritySettingStatus = (key: string) => {
+    const setting = securitySettings.find(s => s.setting_key === key)
+    if (!setting) return { enabled: false, value: null }
+    
+    if (typeof setting.setting_value === 'boolean') {
+      return { enabled: setting.setting_value, value: setting.setting_value }
+    }
+    if (typeof setting.setting_value === 'string') {
+      return { enabled: setting.setting_value === 'true', value: setting.setting_value }
+    }
+    return { enabled: true, value: setting.setting_value }
   }
 
   return (
@@ -144,7 +210,7 @@ export function Security() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatsCard
           title="Active Threats"
-          value={stats.activeThreats}
+          value={securityStats.active_threats}
           subtitle="Require attention"
           icon={AlertTriangle}
           color="red"
@@ -153,7 +219,7 @@ export function Security() {
         
         <StatsCard
           title="Investigating"
-          value={stats.investigating}
+          value={securityStats.investigating}
           subtitle="Under review"
           icon={Eye}
           color="yellow"
@@ -161,9 +227,9 @@ export function Security() {
         />
         
         <StatsCard
-          title="Resolved"
-          value={stats.resolvedThreats}
-          subtitle="This month"
+          title="Resolved Today"
+          value={securityStats.resolved_today}
+          subtitle="Today"
           icon={CheckCircle}
           color="green"
           loading={loading}
@@ -171,10 +237,49 @@ export function Security() {
         
         <StatsCard
           title="Critical Events"
-          value={stats.criticalEvents}
-          subtitle="High priority"
+          value={securityStats.critical_events}
+          subtitle="Last 30 days"
           icon={Shield}
           color="red"
+          loading={loading}
+        />
+      </div>
+
+      {/* Additional Security Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <StatsCard
+          title="Failed Logins"
+          value={securityStats.failed_logins_24h}
+          subtitle="Last 24 hours"
+          icon={Key}
+          color="yellow"
+          loading={loading}
+        />
+        
+        <StatsCard
+          title="Suspicious Activity"
+          value={securityStats.suspicious_activities_7d}
+          subtitle="Last 7 days"
+          icon={AlertTriangle}
+          color="red"
+          loading={loading}
+        />
+        
+        <StatsCard
+          title="Blocked IPs"
+          value={securityStats.blocked_ips}
+          subtitle="Last 30 days"
+          icon={UserX}
+          color="red"
+          loading={loading}
+        />
+        
+        <StatsCard
+          title="Admin Access"
+          value={securityStats.admin_accesses_today}
+          subtitle="Today"
+          icon={Shield}
+          color="blue"
           loading={loading}
         />
       </div>
@@ -189,49 +294,46 @@ export function Security() {
           </h3>
           
           <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white">Two-Factor Authentication</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Require 2FA for admin accounts</p>
-              </div>
-              <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                <span className="text-sm text-green-600 dark:text-green-400">Enabled</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white">Password Policy</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Minimum 8 characters, mixed case</p>
-              </div>
-              <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                <span className="text-sm text-green-600 dark:text-green-400">Enabled</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white">Session Timeout</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Auto-logout after 24 hours</p>
-              </div>
-              <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                <span className="text-sm text-green-600 dark:text-green-400">Enabled</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white">Rate Limiting</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">API request limits</p>
-              </div>
-              <div className="flex items-center">
-                <XCircle className="w-5 h-5 text-red-500 mr-2" />
-                <span className="text-sm text-red-600 dark:text-red-400">Disabled</span>
-              </div>
-            </div>
+            {[
+              { key: 'require_2fa_admin', title: 'Two-Factor Authentication', desc: 'Require 2FA for admin accounts' },
+              { key: 'password_min_length', title: 'Password Policy', desc: 'Minimum password requirements' },
+              { key: 'session_timeout_hours', title: 'Session Timeout', desc: 'Auto-logout configuration' },
+              { key: 'rate_limit_requests_per_minute', title: 'Rate Limiting', desc: 'API request limits' }
+            ].map((policy) => {
+              const setting = getSecuritySettingStatus(policy.key)
+              const isEnabled = policy.key === 'password_min_length' ? 
+                (setting.value && parseInt(setting.value) >= 8) :
+                policy.key === 'session_timeout_hours' ?
+                (setting.value && parseInt(setting.value) <= 24) :
+                setting.enabled
+
+              return (
+                <div key={policy.key} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div>
+                    <h4 className="font-medium text-gray-900 dark:text-white">{policy.title}</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {policy.desc}
+                      {setting.value && policy.key !== 'require_2fa_admin' && (
+                        <span className="ml-2 font-mono">({setting.value})</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex items-center">
+                    {isEnabled ? (
+                      <>
+                        <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                        <span className="text-sm text-green-600 dark:text-green-400">Enabled</span>
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-5 h-5 text-red-500 mr-2" />
+                        <span className="text-sm text-red-600 dark:text-red-400">Disabled</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
 
@@ -245,26 +347,41 @@ export function Security() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Admin Users</span>
-              <span className="text-sm text-gray-900 dark:text-white">3 active</span>
+              <span className="text-sm text-gray-900 dark:text-white">
+                {loading ? '...' : `${securityStats.admin_accesses_today} today`}
+              </span>
             </div>
             
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Blocked IPs</span>
-              <span className="text-sm text-gray-900 dark:text-white">12 addresses</span>
+              <span className="text-sm text-gray-900 dark:text-white">
+                {loading ? '...' : `${securityStats.blocked_ips} addresses`}
+              </span>
             </div>
             
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Suspended Users</span>
-              <span className="text-sm text-gray-900 dark:text-white">5 accounts</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Suspicious Activities</span>
+              <span className="text-sm text-gray-900 dark:text-white">
+                {loading ? '...' : `${securityStats.suspicious_activities_7d} this week`}
+              </span>
             </div>
             
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Failed Logins (24h)</span>
-              <span className="text-sm text-red-600 dark:text-red-400">23 attempts</span>
+              <span className={`text-sm ${securityStats.failed_logins_24h > 10 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
+                {loading ? '...' : `${securityStats.failed_logins_24h} attempts`}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Critical Events</span>
+              <span className={`text-sm ${securityStats.critical_events > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                {loading ? '...' : `${securityStats.critical_events} this month`}
+              </span>
             </div>
             
             <button className="w-full mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-              View Blocked Users
+              View Security Logs
             </button>
           </div>
         </div>
@@ -290,12 +407,12 @@ export function Security() {
         </div>
         
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
-          {filteredEvents.map((event) => (
+          {securityEvents.map((event) => (
             <div key={event.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700">
               <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
-                    {getTypeIcon(event.type)}
+                    {getTypeIcon(event.event_type)}
                   </div>
                   
                   <div className="flex-1 min-w-0">
@@ -309,31 +426,51 @@ export function Security() {
                     </div>
                     
                     <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                      {event.description}
+                      {event.title}
                     </p>
+                    
+                    {event.description && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        {event.description}
+                      </p>
+                    )}
                     
                     <div className="text-xs text-gray-500 dark:text-gray-400 space-x-4">
                       {event.user_email && <span>User: {event.user_email}</span>}
                       {event.ip_address && <span>IP: {event.ip_address}</span>}
-                      <span>{new Date(event.timestamp).toLocaleString()}</span>
+                      <span>{formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="flex items-center space-x-2">
-                  <button className="px-3 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200">
-                    Investigate
-                  </button>
-                  <button className="px-3 py-1 text-xs font-medium rounded bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-200">
-                    Resolve
-                  </button>
-                </div>
+                {event.status === 'active' && (
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => handleEventAction(event.id, 'investigate')}
+                      className="px-3 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200"
+                    >
+                      Investigate
+                    </button>
+                    <button 
+                      onClick={() => handleEventAction(event.id, 'resolve')}
+                      className="px-3 py-1 text-xs font-medium rounded bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-200"
+                    >
+                      Resolve
+                    </button>
+                    <button 
+                      onClick={() => handleEventAction(event.id, 'dismiss')}
+                      className="px-3 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
         
-        {filteredEvents.length === 0 && (
+        {securityEvents.length === 0 && (
           <div className="text-center py-8">
             <Shield className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No security events</h3>

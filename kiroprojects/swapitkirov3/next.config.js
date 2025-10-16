@@ -3,7 +3,8 @@ const nextConfig = {
   images: {
     domains: [
       's3-alpha.figma.com',
-      'ecoynjjagkobmngpaaqx.supabase.co'
+      'ecoynjjagkobmngpaaqx.supabase.co',
+      'images.unsplash.com'
     ],
   },
 }

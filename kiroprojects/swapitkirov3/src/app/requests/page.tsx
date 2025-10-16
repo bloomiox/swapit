@@ -18,6 +18,7 @@ import {
   useSwapRequestActions 
 } from '@/hooks/useSwapRequests'
 import { usePendingReviews, useReviewActions } from '@/hooks/useReviews'
+import { useChatActions } from '@/hooks/useChat'
 import { ReviewModal } from '@/components/modals/ReviewModal'
 
 type TabType = 'received' | 'sent' | 'dropzone'
@@ -37,6 +38,7 @@ export default function RequestsPage() {
   // Actions hooks
   const { acceptSwapRequest, rejectSwapRequest } = useSwapRequestActions()
   const { createReview } = useReviewActions()
+  const { createOrGetConversation } = useChatActions()
 
   const handleAccept = async (requestId: string) => {
     try {
@@ -70,9 +72,41 @@ export default function RequestsPage() {
     }
   }
 
-  const handleMessage = (requestId: string) => {
-    console.log('Message user:', requestId)
-    // TODO: Implement messaging functionality
+  const handleMessage = async (requestId: string) => {
+    try {
+      // Find the request to get the owner/requester info and item details
+      let request
+      let otherUserId
+      let itemId
+      
+      if (activeTab === 'sent') {
+        request = sentRequests.find(req => req.id === requestId)
+        otherUserId = request?.owner_id
+        itemId = request?.requested_item?.id
+      } else if (activeTab === 'received') {
+        request = receivedRequests.find(req => req.id === requestId)
+        otherUserId = request?.requester_id
+        itemId = request?.requested_item?.id
+      } else if (activeTab === 'dropzone') {
+        request = dropzoneRequests.find(req => req.id === requestId)
+        otherUserId = request?.owner_id
+        itemId = request?.requested_item?.id
+      }
+      
+      if (!otherUserId || !itemId) {
+        console.error('Could not find user or item information for request:', requestId)
+        return
+      }
+      
+      // Create or get conversation with the other user
+      const conversationId = await createOrGetConversation(otherUserId)
+      
+      // Navigate to chat with conversation and item reference
+      window.location.href = `/chat?conversation=${conversationId}&item=${itemId}`
+      
+    } catch (error) {
+      console.error('Error starting chat:', error)
+    }
   }
 
   const handleReview = (requestId: string) => {

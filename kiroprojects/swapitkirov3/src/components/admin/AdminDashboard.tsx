@@ -9,7 +9,7 @@ import { PaymentsBoosts } from './sections/PaymentsBoosts'
 import { Analytics } from './sections/Analytics'
 import { Security } from './sections/Security'
 import { ContentManagement } from './sections/ContentManagement'
-import { SystemSettings } from './sections/SystemSettings'
+import SystemSettings from './sections/SystemSettings'
 
 interface AdminDashboardProps {
   activeSection: string

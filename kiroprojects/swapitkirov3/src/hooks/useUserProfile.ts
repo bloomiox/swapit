@@ -232,7 +232,7 @@ export function useUserStats(userId?: string) {
         .from('items')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', targetUserId)
-        .eq('status', 'available')
+        .eq('is_available', true)
 
       if (itemsError) throw itemsError
 
