@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
 
 interface MapProps {
   latitude?: number
@@ -36,68 +37,16 @@ export function OpenStreetMap({
       if (typeof window === 'undefined') return
 
       try {
+        // Import Leaflet
         const L = (await import('leaflet')).default
         
-        // Import CSS dynamically
-        if (!document.querySelector('link[href*="leaflet.css"]')) {
-          const link = document.createElement('link')
-          link.rel = 'stylesheet'
-          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-          link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY='
-          link.crossOrigin = ''
-          document.head.appendChild(link)
-        }
-
-        // Add custom CSS to control Leaflet z-index and marker styling
-        if (!document.querySelector('#leaflet-z-index-fix')) {
-          const style = document.createElement('style')
-          style.id = 'leaflet-z-index-fix'
-          style.textContent = `
-            .leaflet-container {
-              z-index: 1 !important;
-            }
-            .leaflet-pane {
-              z-index: auto !important;
-            }
-            .leaflet-tile-pane {
-              z-index: 1 !important;
-            }
-            .leaflet-overlay-pane {
-              z-index: 2 !important;
-            }
-            .leaflet-shadow-pane {
-              z-index: 3 !important;
-            }
-            .leaflet-marker-pane {
-              z-index: 4 !important;
-            }
-            .leaflet-tooltip-pane {
-              z-index: 5 !important;
-            }
-            .leaflet-popup-pane {
-              z-index: 6 !important;
-            }
-            .leaflet-control-container {
-              z-index: 7 !important;
-            }
-            .custom-item-marker {
-              background: transparent !important;
-              border: none !important;
-            }
-            .custom-item-marker:hover {
-              transform: scale(1.1);
-              transition: transform 0.2s ease;
-            }
-            .leaflet-popup-content-wrapper {
-              border-radius: 12px;
-              box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-            }
-            .leaflet-popup-content {
-              margin: 12px 16px;
-            }
-          `
-          document.head.appendChild(style)
-        }
+        // Fix for default markers not showing
+        delete (L.Icon.Default.prototype as any)._getIconUrl
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+        })
 
         if (mapRef.current && !mapInstanceRef.current) {
           // Initialize map

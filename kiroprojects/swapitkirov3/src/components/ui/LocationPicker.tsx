@@ -15,6 +15,7 @@ interface Location {
 interface LocationPickerProps {
   onLocationChange: (location: Location) => void
   className?: string
+  initialLocation?: Location | null
 }
 
 // Popular cities for quick selection
@@ -29,14 +30,23 @@ const popularCities: Location[] = [
   { name: 'Winterthur, Switzerland', coordinates: { lat: 47.5022, lng: 8.7247 } }
 ]
 
-export function LocationPicker({ onLocationChange, className = '' }: LocationPickerProps) {
+export function LocationPicker({ onLocationChange, className = '', initialLocation }: LocationPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [currentLocation, setCurrentLocation] = useState<Location>({
-    name: 'Select Location',
-    coordinates: { lat: 47.4245, lng: 9.3767 }
-  })
+  const [currentLocation, setCurrentLocation] = useState<Location>(
+    initialLocation || {
+      name: 'Select Location',
+      coordinates: { lat: 47.4245, lng: 9.3767 }
+    }
+  )
   const [isDetecting, setIsDetecting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Update current location when initialLocation changes
+  useEffect(() => {
+    if (initialLocation) {
+      setCurrentLocation(initialLocation)
+    }
+  }, [initialLocation])
 
   // Filter cities based on search query
   const filteredCities = popularCities.filter(city =>
@@ -135,6 +145,9 @@ export function LocationPicker({ onLocationChange, className = '' }: LocationPic
         >
           {currentLocation.name}
         </span>
+        {currentLocation.name.includes('Current Location') && (
+          <Check className="w-4 h-4 text-green-500" />
+        )}
         <ChevronDown 
           className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`} 
           style={{ color: 'var(--text-primary)' }} 

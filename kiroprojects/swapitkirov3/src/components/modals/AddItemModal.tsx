@@ -68,10 +68,46 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
   const [showBoostModal, setShowBoostModal] = useState(false)
   const [lastAddedItem, setLastAddedItem] = useState<{ id: string; title: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [hasPromptedLocation, setHasPromptedLocation] = useState(false)
   
   const { user } = useAuth()
   const { categories, loading: categoriesLoading } = useCategories()
   const { createItem, loading: createLoading, error: createError } = useCreateItem()
+
+  // Auto-prompt for location when modal opens
+  React.useEffect(() => {
+    if (isOpen && !hasPromptedLocation && !formData.location) {
+      // Small delay to let the modal animation complete
+      const timer = setTimeout(() => {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords
+              const detectedLocation: Location = {
+                name: `Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`,
+                coordinates: { lat: latitude, lng: longitude }
+              }
+              setFormData(prev => ({ ...prev, location: detectedLocation }))
+              setHasPromptedLocation(true)
+            },
+            (error) => {
+              console.log('Location detection declined or failed:', error)
+              setHasPromptedLocation(true)
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 300000 // 5 minutes
+            }
+          )
+        } else {
+          setHasPromptedLocation(true)
+        }
+      }, 500)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen, hasPromptedLocation, formData.location])
 
   const handleImageUpload = (urls: string[]) => {
     setFormData(prev => ({
@@ -189,6 +225,26 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
       setError(error instanceof Error ? error.message : 'Failed to create item')
     }
   }
+
+  // Reset form when modal closes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setFormData({
+        photos: [],
+        itemType: 'swap',
+        title: '',
+        description: '',
+        categoryId: '',
+        condition: 'like_new',
+        location: null,
+        swapPreferences: []
+      })
+      setHasPromptedLocation(false)
+      setError(null)
+      setNewPreference('')
+      setShowCategoryDropdown(false)
+    }
+  }, [isOpen])
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
@@ -501,6 +557,7 @@ export function AddItemModal({ isOpen, onClose, onSuccess }: AddItemModalProps) 
             <LocationPicker
               onLocationChange={(location) => setFormData(prev => ({ ...prev, location }))}
               className="w-full"
+              initialLocation={formData.location}
             />
           </div>
 

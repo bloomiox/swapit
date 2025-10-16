@@ -81,6 +81,55 @@ export default function BrowsePage() {
     
     return filterObj
   }, [filters, searchQuery])
+
+  // Parse coordinates for map markers
+  const parseCoordinates = (locationCoordinates: any) => {
+    if (!locationCoordinates) return null
+    
+    let lat: number | undefined, lng: number | undefined
+    
+    if (typeof locationCoordinates === 'string') {
+      if (locationCoordinates.startsWith('0101000020E6100000')) {
+        // Parse PostGIS WKB (Well-Known Binary) format
+        try {
+          // Remove the header (first 18 characters: 0101000020E6100000)
+          const coordsHex = locationCoordinates.substring(18)
+          
+          // Extract longitude (first 8 bytes = 16 hex chars)
+          const lngHex = coordsHex.substring(0, 16)
+          // Extract latitude (next 8 bytes = 16 hex chars)  
+          const latHex = coordsHex.substring(16, 32)
+          
+          // Convert hex to little-endian double
+          const lngBytes = new Uint8Array(lngHex.match(/.{2}/g)!.map(byte => parseInt(byte, 16)))
+          const latBytes = new Uint8Array(latHex.match(/.{2}/g)!.map(byte => parseInt(byte, 16)))
+          
+          lng = new DataView(lngBytes.buffer).getFloat64(0, true) // true = little endian
+          lat = new DataView(latBytes.buffer).getFloat64(0, true)
+        } catch (error) {
+          console.error('Error parsing WKB coordinates:', error)
+        }
+      } else {
+        // Parse PostGIS POINT format: "POINT(lng lat)"
+        const match = locationCoordinates.match(/POINT\(([^)]+)\)/)
+        if (match) {
+          const coords = match[1].split(' ')
+          lng = parseFloat(coords[0])
+          lat = parseFloat(coords[1])
+        }
+      }
+    } else if (locationCoordinates.lat && locationCoordinates.lng) {
+      // Direct lat/lng object
+      lat = locationCoordinates.lat
+      lng = locationCoordinates.lng
+    } else if (locationCoordinates.coordinates) {
+      // GeoJSON format: coordinates[0] = lng, coordinates[1] = lat
+      lng = locationCoordinates.coordinates[0]
+      lat = locationCoordinates.coordinates[1]
+    }
+    
+    return lat && lng && !isNaN(lat) && !isNaN(lng) ? { lat, lng } : null
+  }
   
   const { items, loading, error } = useItems(itemFilters)
   
@@ -564,24 +613,39 @@ export default function BrowsePage() {
                 <span className="text-gray-500">Loading map...</span>
               </div>
             ) : (
-              <OpenStreetMap
+              <>
+                {/* Debug info */}
+                {console.log('Total items:', items.length)}
+                {console.log('Items with coordinates:', items.filter(item => parseCoordinates(item.location_coordinates)).length)}
+                <OpenStreetMap
                 latitude={currentLocation.coordinates.lat}
                 longitude={currentLocation.coordinates.lng}
                 zoom={12}
                 className="w-full h-full"
                 markers={items
-                  .filter(item => item.location_coordinates)
-                  .map(item => ({
-                    lat: item.location_coordinates.lat || currentLocation.coordinates.lat,
-                    lng: item.location_coordinates.lng || currentLocation.coordinates.lng,
-                    title: item.title,
-                    id: item.id,
-                    imageUrl: item.images?.[0] || undefined,
-                    isFree: item.is_free
-                  }))
+                  .map(item => {
+                    const coords = parseCoordinates(item.location_coordinates)
+                    return coords ? {
+                      lat: coords.lat,
+                      lng: coords.lng,
+                      title: item.title,
+                      id: item.id,
+                      imageUrl: item.images?.[0] || undefined,
+                      isFree: item.is_free
+                    } : null
+                  })
+                  .filter(marker => marker !== null) as Array<{
+                    lat: number
+                    lng: number
+                    title: string
+                    id: string
+                    imageUrl?: string
+                    isFree: boolean
+                  }>
                 }
                 showUserLocation={true}
               />
+              </>
             )}
             
             {/* Floating Location Button */}

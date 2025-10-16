@@ -63,7 +63,7 @@ export function ItemCard({ item }: ItemCardProps) {
         className={`flex flex-col w-full border rounded-2xl overflow-hidden hover:shadow-cards transition-all duration-200 cursor-pointer hover:scale-[1.02] ${isBoosted ? 'border-2' : ''}`}
         style={{ 
           backgroundColor: 'var(--bg-card)',
-          borderColor: isBoosted ? '#FFC107' : 'var(--border-color)',
+          borderColor: isBoosted ? 'rgb(17, 156, 33)' : 'var(--border-color)',
           minHeight: '400px' // Ensure consistent height for larger cards
         }}
       >
@@ -117,7 +117,7 @@ export function ItemCard({ item }: ItemCardProps) {
                   </div>
                 )}
                 {!boostType && (
-                  <div className="bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                  <div className="text-white px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg" style={{ backgroundColor: 'rgb(17, 156, 33)' }}>
                     <TrendingUp className="w-4 h-4" />
                     <span className="text-sm font-bold">BOOSTED</span>
                   </div>

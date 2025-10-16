@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
+@import 'leaflet/dist/leaflet.css';
 
 :root {
   --bg-primary: #FFFFFF;
@@ -98,4 +99,60 @@
     border: none;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
+}
+
+/* Leaflet Map Styles */
+.leaflet-container {
+  z-index: 1 !important;
+}
+
+.leaflet-pane {
+  z-index: auto !important;
+}
+
+.leaflet-tile-pane {
+  z-index: 1 !important;
+}
+
+.leaflet-overlay-pane {
+  z-index: 2 !important;
+}
+
+.leaflet-shadow-pane {
+  z-index: 3 !important;
+}
+
+.leaflet-marker-pane {
+  z-index: 4 !important;
+}
+
+.leaflet-tooltip-pane {
+  z-index: 5 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 6 !important;
+}
+
+.leaflet-control-container {
+  z-index: 7 !important;
+}
+
+.custom-item-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-item-marker:hover {
+  transform: scale(1.1);
+  transition: transform 0.2s ease;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px;
 }

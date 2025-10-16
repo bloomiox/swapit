@@ -62,7 +62,7 @@ export default function SystemSettings() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-white px-4 py-2 rounded-lg transition-colors"
         >
           {saving ? (
             <RefreshCw className="h-4 w-4 animate-spin" />

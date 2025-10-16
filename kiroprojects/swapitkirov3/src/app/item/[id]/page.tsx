@@ -118,6 +118,61 @@ export default function ItemDetailsPage() {
     }
   }, [item, user, loading, checkIfSaved])
 
+  // Parse location coordinates
+  const parsedCoordinates = React.useMemo(() => {
+    if (!item?.location_coordinates) return null
+    
+    // Debug: Log the location coordinates structure
+    console.log('Item location_coordinates:', item.location_coordinates)
+    console.log('Item location_name:', item.location_name)
+    
+    let lat: number | undefined, lng: number | undefined
+    
+    if (typeof item.location_coordinates === 'string') {
+      if (item.location_coordinates.startsWith('0101000020E6100000')) {
+        // Parse PostGIS WKB (Well-Known Binary) format
+        try {
+          // Remove the header (first 18 characters: 0101000020E6100000)
+          const coordsHex = item.location_coordinates.substring(18)
+          
+          // Extract longitude (first 8 bytes = 16 hex chars)
+          const lngHex = coordsHex.substring(0, 16)
+          // Extract latitude (next 8 bytes = 16 hex chars)  
+          const latHex = coordsHex.substring(16, 32)
+          
+          // Convert hex to little-endian double
+          const lngBytes = new Uint8Array(lngHex.match(/.{2}/g)!.map(byte => parseInt(byte, 16)))
+          const latBytes = new Uint8Array(latHex.match(/.{2}/g)!.map(byte => parseInt(byte, 16)))
+          
+          lng = new DataView(lngBytes.buffer).getFloat64(0, true) // true = little endian
+          lat = new DataView(latBytes.buffer).getFloat64(0, true)
+          
+          console.log('Parsed WKB coordinates:', { lat, lng })
+        } catch (error) {
+          console.error('Error parsing WKB coordinates:', error)
+        }
+      } else {
+        // Parse PostGIS POINT format: "POINT(lng lat)"
+        const match = item.location_coordinates.match(/POINT\(([^)]+)\)/)
+        if (match) {
+          const coords = match[1].split(' ')
+          lng = parseFloat(coords[0])
+          lat = parseFloat(coords[1])
+        }
+      }
+    } else if (item.location_coordinates.lat && item.location_coordinates.lng) {
+      // Direct lat/lng object
+      lat = item.location_coordinates.lat
+      lng = item.location_coordinates.lng
+    } else if (item.location_coordinates.coordinates) {
+      // GeoJSON format: coordinates[0] = lng, coordinates[1] = lat
+      lng = item.location_coordinates.coordinates[0]
+      lat = item.location_coordinates.coordinates[1]
+    }
+    
+    return lat && lng && !isNaN(lat) && !isNaN(lng) ? { lat, lng } : null
+  }, [item?.location_coordinates, item?.location_name])
+
   // Loading state
   if (loading) {
     return (
@@ -495,7 +550,7 @@ export default function ItemDetailsPage() {
               className={`p-4 rounded-2xl border relative ${item.is_boosted ? 'border-2' : ''}`}
               style={{ 
                 backgroundColor: 'var(--bg-card)',
-                borderColor: item.is_boosted ? '#FFC107' : 'var(--border-color)'
+                borderColor: item.is_boosted ? 'rgb(17, 156, 33)' : 'var(--border-color)'
               }}
             >
               {/* Save/Favorite Button */}
@@ -555,7 +610,7 @@ export default function ItemDetailsPage() {
                       </div>
                     )}
                     {!item.boost_type && (
-                      <div className="bg-yellow-400 text-yellow-900 px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg">
+                      <div className="text-white px-3 py-1.5 rounded-full backdrop-blur-sm flex items-center gap-1.5 shadow-lg" style={{ backgroundColor: 'rgb(17, 156, 33)' }}>
                         <TrendingUp className="w-4 h-4" />
                         <span className="text-sm font-bold">BOOSTED</span>
                       </div>
@@ -730,16 +785,16 @@ export default function ItemDetailsPage() {
                 </div>
               </div>
               
-              {item.location_coordinates && item.location_coordinates.lat && item.location_coordinates.lng ? (
+              {parsedCoordinates ? (
                 <OpenStreetMap
-                  latitude={item.location_coordinates.lat}
-                  longitude={item.location_coordinates.lng}
+                  latitude={parsedCoordinates.lat}
+                  longitude={parsedCoordinates.lng}
                   zoom={15}
                   className="w-full h-full"
                   markers={[
                     {
-                      lat: item.location_coordinates.lat,
-                      lng: item.location_coordinates.lng,
+                      lat: parsedCoordinates.lat,
+                      lng: parsedCoordinates.lng,
                       title: item.title,
                       id: item.id,
                       imageUrl: item.images?.[0],
