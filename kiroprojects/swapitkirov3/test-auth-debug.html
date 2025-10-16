@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Debug Test</title>
+</head>
+<body>
+    <h1>Supabase Auth Debug</h1>
+    <div id="output"></div>
+    
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+        
+        const supabaseUrl = 'https://ecoynjjagkobmngpaaqx.supabase.co'
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjb3luamphZ2tvYm1uZ3BhYXF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0NjcwMDUsImV4cCI6MjA3NjA0MzAwNX0.nRJ0A5yM804bO925-OkJ9-zANng1UXkr_pUREvdR4jg'
+        
+        const supabase = createClient(supabaseUrl, supabaseAnonKey)
+        
+        const output = document.getElementById('output')
+        
+        async function testAuth() {
+            try {
+                // Try to sign in
+                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                    email: 'test@example.com',
+                    password: 'testpassword123'
+                })
+                
+                if (signInError) {
+                    output.innerHTML += `<p>Sign in error: ${signInError.message}</p>`
+                    return
+                }
+                
+                output.innerHTML += `<p>✅ Signed in successfully</p>`
+                
+                // Get session
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+                
+                if (sessionError || !session) {
+                    output.innerHTML += `<p>❌ No session: ${sessionError?.message}</p>`
+                    return
+                }
+                
+                output.innerHTML += `<p>✅ Session found: ${session.user.email}</p>`
+                
+                // Test Edge Function call
+                const { data, error } = await supabase.functions.invoke('create-stripe-payment', {
+                    body: {
+                        type: 'boost',
+                        itemId: '123e4567-e89b-12d3-a456-426614174000',
+                        boostType: 'premium',
+                        currency: 'USD',
+                        duration: 7
+                    },
+                    headers: {
+                        Authorization: `Bearer ${session.access_token}`,
+                    },
+                })
+                
+                if (error) {
+                    output.innerHTML += `<p>❌ Edge Function error: ${error.message}</p>`
+                } else {
+                    output.innerHTML += `<p>✅ Edge Function success: ${JSON.stringify(data)}</p>`
+                }
+                
+            } catch (error) {
+                output.innerHTML += `<p>❌ Unexpected error: ${error.message}</p>`
+            }
+        }
+        
+        testAuth()
+    </script>
+</body>
+</html>

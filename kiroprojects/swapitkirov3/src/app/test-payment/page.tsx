@@ -10,10 +10,10 @@ export default function TestPaymentPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const { user, signIn, signOut, loading } = useAuth();
 
-  // Mock item data for testing
+  // Real item data for testing (from cloud database)
   const mockItem = {
-    id: '123e4567-e89b-12d3-a456-426614174000',
-    title: 'Test Item for Payment',
+    id: '3755b392-a070-4850-88f9-7e3773c272ef',
+    title: 'Item to Boost',
   };
 
   const handlePaymentSuccess = () => {
@@ -127,8 +127,8 @@ export default function TestPaymentPage() {
                   <p className="text-sm text-gray-900">{mockItem.title}</p>
                 </div>
                 <div>
-                  <span className="text-sm font-medium text-gray-600">Status:</span>
-                  <p className="text-sm text-green-600">Active</p>
+                  <span className="text-sm font-medium text-gray-600">Source:</span>
+                  <p className="text-sm text-blue-600">Real item from cloud database</p>
                 </div>
               </div>
             </div>

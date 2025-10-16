@@ -71,6 +71,16 @@ export const usePayments = () => {
 
     try {
       console.log('Invoking create-stripe-payment Edge Function...');
+      
+      // Get the current session to ensure we have the latest token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('No valid session found. Please sign in again.');
+      }
+
+      console.log('Session found, invoking function with auth...');
+      
       const { data, error } = await supabase.functions.invoke('create-stripe-payment', {
         body: {
           type: 'boost',
@@ -86,13 +96,26 @@ export const usePayments = () => {
             source: 'web',
           } as PaymentMetadata,
         },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       });
 
       console.log('Edge Function response:', { data, error });
+      console.log('Edge Function data details:', data);
+      console.log('Edge Function error details:', error);
 
       if (error) {
         console.error('Edge Function error:', error);
-        throw error;
+        console.error('Error message:', error.message);
+        console.error('Error details:', error.details);
+        console.error('Full error object:', JSON.stringify(error, null, 2));
+        throw new Error(error.message || error.details || 'Edge Function failed');
+      }
+
+      if (!data) {
+        console.error('No data returned from Edge Function');
+        throw new Error('No data returned from Edge Function');
       }
 
       console.log('Returning payment data:', data);
